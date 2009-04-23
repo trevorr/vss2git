@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.vssGroupBox = new System.Windows.Forms.GroupBox();
             this.excludeTextBox = new System.Windows.Forms.TextBox();
             this.excludeLabel = new System.Windows.Forms.Label();
@@ -370,6 +371,7 @@
             this.Controls.Add(this.statusStrip);
             this.Controls.Add(this.goButton);
             this.Controls.Add(this.vssGroupBox);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MinimumSize = new System.Drawing.Size(450, 393);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
