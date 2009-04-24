@@ -244,6 +244,24 @@ namespace Hpdi.Vss2Git
         private const char QuoteChar = '"';
         private const char EscapeChar = '\\';
 
+        /// <summary>
+        /// Puts quotes around a command-line argument if it includes whitespace
+        /// or quotes.
+        /// </summary>
+        /// <remarks>
+        /// There are two things going on in this method: quoting and escaping.
+        /// Quoting puts the entire string in quotes, whereas escaping is per-
+        /// character. Quoting happens only if necessary, when whitespace or a
+        /// quote is encountered somewhere in the string, and escaping happens
+        /// only within quoting. Spaces don't need escaping, since that's what
+        /// the quotes are for. Slashes don't need escaping because apparently a
+        /// backslash is only interpreted as an escape when it precedes a quote.
+        /// Otherwise both slash and backslash are just interpreted as directory
+        /// separators.
+        /// </remarks>
+        /// <param name="arg">A command-line argument to quote.</param>
+        /// <returns>The given argument, possibly in quotes, with internal
+        /// quotes escaped with backslashes.</returns>
         private static string Quote(string arg)
         {
             if (string.IsNullOrEmpty(arg))
