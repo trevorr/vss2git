@@ -1,6 +1,6 @@
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Vss2Git"
-!define PRODUCT_VERSION "1.0"
+!define PRODUCT_VERSION "1.0.1"
 !define PRODUCT_PUBLISHER "Trevor Robinson"
 !define PRODUCT_WEB_SITE "http://code.google.com/p/vss2git/"
 !define PRODUCT_REGISTRY_KEY "Software\Vss2Git"
@@ -49,7 +49,7 @@
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "Vss2GitSetup.exe"
+OutFile "Vss2GitSetup-${PRODUCT_VERSION}.exe"
 InstallDir "$PROGRAMFILES\Vss2Git"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
