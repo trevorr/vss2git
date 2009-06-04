@@ -18,28 +18,35 @@ using System;
 namespace Hpdi.Vss2Git
 {
     /// <summary>
-    /// Exception thrown when a process exits with a non-zero exit code.
+    /// Exception thrown while executing an external process.
     /// </summary>
     /// <author>Trevor Robinson</author>
-    class ProcessExitException : ProcessException
+    class ProcessException : Exception
     {
-        private readonly string stdout;
-        public string Stdout
+        private readonly string executable;
+        public string Executable
         {
-            get { return stdout; }
+            get { return executable; }
         }
 
-        private readonly string stderr;
-        public string Stderr
+        private readonly string arguments;
+        public string Arguments
         {
-            get { return stderr; }
+            get { return arguments; }
         }
 
-        public ProcessExitException(string message, string executable, string arguments, string stdout, string stderr)
-            : base(message, executable, arguments)
+        public ProcessException(string message, string executable, string arguments)
+            : base(message)
         {
-            this.stdout = stdout;
-            this.stderr = stderr;
+            this.executable = executable;
+            this.arguments = arguments;
+        }
+
+        public ProcessException(string message, Exception innerException, string executable, string arguments)
+            : base(message, innerException)
+        {
+            this.executable = executable;
+            this.arguments = arguments;
         }
     }
 }

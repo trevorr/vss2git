@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
@@ -69,7 +70,24 @@ namespace Hpdi.Vss2Git
                 }
 
                 var git = new GitWrapper(repoPath, logger);
-                git.Init();
+
+                while (!git.FindExecutable())
+                {
+                    var button = MessageBox.Show("Git not found in PATH. " +
+                        "If you need to modify your PATH variable, please " + 
+                        "restart the program for the changes to take effect.",
+                        "Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
+                    if (button == DialogResult.Cancel)
+                    {
+                        workQueue.Abort();
+                        return;
+                    }
+                }
+
+                if (!RetryCancel(delegate { git.Init(); }))
+                {
+                    return;
+                }
 
                 var pathMapper = new VssPathMapper();
 
@@ -132,9 +150,10 @@ namespace Hpdi.Vss2Git
                         foreach (Revision label in labels)
                         {
                             var labelName = ((VssLabelAction)label.Action).Label;
-                            LogStatus(work, "Creating tag " + labelName);
+                            var tagName = GetTagFromLabel(labelName);
+                            LogStatus(work, "Creating tag " + tagName);
                             if (AbortRetryIgnore(
-                                delegate { git.Tag(labelName, label.Comment); }))
+                                delegate { git.Tag(tagName, label.Comment); }))
                             {
                                 ++tagCount;
                             }
@@ -440,13 +459,21 @@ namespace Hpdi.Vss2Git
             return result;
         }
 
+        private bool RetryCancel(ThreadStart work)
+        {
+            return AbortRetryIgnore(work, MessageBoxButtons.RetryCancel);
+        }
+
         private bool AbortRetryIgnore(ThreadStart work)
         {
-            int tries = 0;
+            return AbortRetryIgnore(work, MessageBoxButtons.AbortRetryIgnore);
+        }
+
+        private bool AbortRetryIgnore(ThreadStart work, MessageBoxButtons buttons)
+        {
             bool retry;
             do
             {
-                ++tries;
                 try
                 {
                     work();
@@ -457,8 +484,9 @@ namespace Hpdi.Vss2Git
                     var message = ExceptionFormatter.Format(e);
                     logger.WriteLine("ERROR: {0}", message);
 
-                    var button = MessageBox.Show(message, "Error",
-                        MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error);
+                    message += "\nSee log file for more information.";
+
+                    var button = MessageBox.Show(message, "Error", buttons, MessageBoxIcon.Error);
                     switch (button)
                     {
                         case DialogResult.Retry:
@@ -481,6 +509,13 @@ namespace Hpdi.Vss2Git
         {
             // TODO: user-defined mapping of user names to email addresses
             return user.ToLower().Replace(' ', '.') + "@" + emailDomain;
+        }
+
+        private string GetTagFromLabel(string label)
+        {
+            // git tag names must be valid filenames, so replace sequences of
+            // invalid characters with an underscore
+            return Regex.Replace(label, "[^A-Za-z0-9_-]+", "_");
         }
 
         private void WriteRevision(VssPathMapper pathMapper, VssActionType actionType,

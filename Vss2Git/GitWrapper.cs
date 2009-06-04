@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -31,16 +32,48 @@ namespace Hpdi.Vss2Git
         private readonly string repoPath;
         private readonly Logger logger;
         private readonly Stopwatch stopwatch = new Stopwatch();
+        private string gitExecutable = "git.exe";
+        private string gitInitialArguments = null;
 
         public TimeSpan ElapsedTime
         {
             get { return stopwatch.Elapsed; }
         }
 
+        public string GitExecutable
+        {
+            get { return gitExecutable; }
+            set { gitExecutable = value; }
+        }
+
+        public string GitInitialArguments
+        {
+            get { return gitInitialArguments; }
+            set { gitInitialArguments = value; }
+        }
+
         public GitWrapper(string repoPath, Logger logger)
         {
             this.repoPath = repoPath;
             this.logger = logger;
+        }
+
+        public bool FindExecutable()
+        {
+            string foundPath;
+            if (FindInPathVar("git.exe", out foundPath))
+            {
+                gitExecutable = foundPath;
+                gitInitialArguments = null;
+                return true;
+            }
+            if (FindInPathVar("git.cmd", out foundPath))
+            {
+                gitExecutable = "cmd.exe";
+                gitInitialArguments = "/c git";
+                return true;
+            }
+            return false;
         }
 
         public void Init()
@@ -127,7 +160,8 @@ namespace Hpdi.Vss2Git
 
         public void Tag(string name, string comment)
         {
-            var args = "tag " + Quote(name);
+            // tag names are not quoted because they cannot contain whitespace or quotes
+            var args = "tag " + name;
             if (!string.IsNullOrEmpty(comment))
             {
                 args += " -m " + Quote(comment);
@@ -143,7 +177,12 @@ namespace Hpdi.Vss2Git
 
         private ProcessStartInfo GetStartInfo(string args)
         {
-            var startInfo = new ProcessStartInfo("git", args);
+            if (!string.IsNullOrEmpty(gitInitialArguments))
+            {
+                args = gitInitialArguments + " " + args;
+            }
+
+            var startInfo = new ProcessStartInfo(gitExecutable, args);
             startInfo.UseShellExecute = false;
             startInfo.RedirectStandardInput = true;
             startInfo.RedirectStandardOutput = true;
@@ -163,17 +202,17 @@ namespace Hpdi.Vss2Git
                     ((string.IsNullOrEmpty(stdout) || !stdout.Contains(unless)) &&
                      (string.IsNullOrEmpty(stderr) || !stderr.Contains(unless))))
                 {
-                    FailExitCode(startInfo.Arguments, stdout, stderr, exitCode);
+                    FailExitCode(startInfo.FileName, startInfo.Arguments, stdout, stderr, exitCode);
                 }
             }
             return exitCode == 0;
         }
 
-        private static void FailExitCode(string args, string stdout, string stderr, int exitCode)
+        private static void FailExitCode(string exec, string args, string stdout, string stderr, int exitCode)
         {
             throw new ProcessExitException(
                 string.Format("git returned exit code {0}", exitCode),
-                args, stdout, stderr);
+                exec, args, stdout, stderr);
         }
 
         private int Execute(ProcessStartInfo startInfo, out string stdout, out string stderr)
@@ -194,8 +233,8 @@ namespace Hpdi.Vss2Git
                     stdoutReader.DataReceived += activityHandler;
                     stderrReader.DataReceived += activityHandler;
 
-                    stdout = null;
-                    stderr = null;
+                    var stdoutBuffer = new StringBuilder();
+                    var stderrBuffer = new StringBuilder();
                     while (true)
                     {
                         activityEvent.Reset();
@@ -205,7 +244,12 @@ namespace Hpdi.Vss2Git
                             string line = stdoutReader.ReadLine();
                             if (line != null)
                             {
-                                stdout = line;
+                                line = line.TrimEnd();
+                                if (stdoutBuffer.Length > 0)
+                                {
+                                    stdoutBuffer.AppendLine();
+                                }
+                                stdoutBuffer.Append(line);
                                 logger.Write('>');
                             }
                             else
@@ -213,7 +257,12 @@ namespace Hpdi.Vss2Git
                                 line = stderrReader.ReadLine();
                                 if (line != null)
                                 {
-                                    stderr = line;
+                                    line = line.TrimEnd();
+                                    if (stderrBuffer.Length > 0)
+                                    {
+                                        stderrBuffer.AppendLine();
+                                    }
+                                    stderrBuffer.Append(line);
                                     logger.Write('!');
                                 }
                                 else
@@ -221,7 +270,7 @@ namespace Hpdi.Vss2Git
                                     break;
                                 }
                             }
-                            logger.WriteLine(line.TrimEnd());
+                            logger.WriteLine(line);
                         }
 
                         if (process.HasExited)
@@ -232,13 +281,51 @@ namespace Hpdi.Vss2Git
                         activityEvent.WaitOne(1000);
                     }
 
+                    stdout = stdoutBuffer.ToString();
+                    stderr = stderrBuffer.ToString();
                     return process.ExitCode;
                 }
+            }
+            catch (FileNotFoundException e)
+            {
+                throw new ProcessException("Executable not found.",
+                    e, startInfo.FileName, startInfo.Arguments);
+            }
+            catch (Win32Exception e)
+            {
+                throw new ProcessException("Error executing external process.",
+                    e, startInfo.FileName, startInfo.Arguments);
             }
             finally
             {
                 stopwatch.Stop();
             }
+        }
+
+        private bool FindInPathVar(string filename, out string foundPath)
+        {
+            string path = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(path))
+            {
+                return FindInPaths(filename, path.Split(Path.PathSeparator), out foundPath);
+            }
+            foundPath = null;
+            return false;
+        }
+
+        private bool FindInPaths(string filename, IEnumerable<string> searchPaths, out string foundPath)
+        {
+            foreach (string searchPath in searchPaths)
+            {
+                string path = Path.Combine(searchPath, filename);
+                if (File.Exists(path))
+                {
+                    foundPath = path;
+                    return true;
+                }
+            }
+            foundPath = null;
+            return false;
         }
 
         private const char QuoteChar = '"';

@@ -43,6 +43,7 @@
     <Compile Include="AsyncLineReader.cs" />
     <Compile Include="CollectionUtil.cs" />
     <Compile Include="ChangesetBuilder.cs" />
+    <Compile Include="ProcessException.cs" />
     <Compile Include="ExceptionFormatter.cs">
     </Compile>
     <Compile Include="PathMatcher.cs" />
