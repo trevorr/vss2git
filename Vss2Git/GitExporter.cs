@@ -483,6 +483,7 @@ namespace Hpdi.Vss2Git
                 {
                     var message = ExceptionFormatter.Format(e);
                     logger.WriteLine("ERROR: {0}", message);
+                    logger.WriteLine(e);
 
                     message += "\nSee log file for more information.";
 
@@ -550,7 +551,9 @@ namespace Hpdi.Vss2Git
             catch (Exception e)
             {
                 // log an error for missing data files or versions, but keep processing
-                logger.WriteLine("ERROR: {0}", e.Message);
+                var message = ExceptionFormatter.Format(e);
+                logger.WriteLine("ERROR: {0}", message);
+                logger.WriteLine(e);
                 return;
             }
 

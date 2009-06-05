@@ -208,16 +208,17 @@ namespace Hpdi.Vss2Git
         private void AddChangeset(Changeset change)
         {
             changesets.AddLast(change);
-            DumpChangeset(change);
+            int changesetId = changesets.Count;
+            DumpChangeset(change, changesetId);
         }
 
-        private void DumpChangeset(Changeset changeset)
+        private void DumpChangeset(Changeset changeset, int changesetId)
         {
             var firstRevTime = changeset.Revisions.First.Value.DateTime;
             var changeDuration = changeset.DateTime - firstRevTime;
             logger.WriteSectionSeparator();
-            logger.WriteLine("{0} ({1} secs) {2} {3} files",
-                changeset.DateTime, changeDuration.TotalSeconds, changeset.User,
+            logger.WriteLine("Changeset {0} - {1} ({2} secs) {3} {4} files",
+                changesetId, changeset.DateTime, changeDuration.TotalSeconds, changeset.User,
                 changeset.Revisions.Count);
             if (!string.IsNullOrEmpty(changeset.Comment))
             {

@@ -120,6 +120,9 @@ namespace Hpdi.Vss2Git
                 logger.WriteSectionSeparator();
                 LogStatus(work, "Building revision list");
 
+                logger.WriteLine("Root project: {0}", project.Path);
+                logger.WriteLine("Excluded files: {0}", excludeFiles);
+
                 int excludedProjects = 0;
                 int excludedFiles = 0;
                 var stopwatch = Stopwatch.StartNew();

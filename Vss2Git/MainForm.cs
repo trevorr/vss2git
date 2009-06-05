@@ -27,6 +27,7 @@ namespace Hpdi.Vss2Git
     public partial class MainForm : Form
     {
         private readonly WorkQueue workQueue = new WorkQueue(1);
+        private Logger logger = Logger.Null;
         private RevisionAnalyzer revisionAnalyzer;
         private ChangesetBuilder changesetBuilder;
 
@@ -35,10 +36,19 @@ namespace Hpdi.Vss2Git
             InitializeComponent();
         }
 
+        private void OpenLog(string filename)
+        {
+            logger = string.IsNullOrEmpty(filename) ? Logger.Null : new Logger(filename);
+        }
+
         private void goButton_Click(object sender, EventArgs e)
         {
             try
             {
+                OpenLog(logTextBox.Text);
+
+                WriteSettings();
+
                 var df = new VssDatabaseFactory(vssDirTextBox.Text);
                 var db = df.Open();
 
@@ -63,8 +73,6 @@ namespace Hpdi.Vss2Git
                     return;
                 }
 
-                var logger = OpenLog(logTextBox.Text);
-
                 revisionAnalyzer = new RevisionAnalyzer(workQueue, logger, db);
                 if (!string.IsNullOrEmpty(excludeTextBox.Text))
                 {
@@ -88,7 +96,11 @@ namespace Hpdi.Vss2Git
                     gitExporter.ExportToGit(outDirTextBox.Text);
                 }
 
-                workQueue.Idle += delegate { logger.Dispose(); };
+                workQueue.Idle += delegate
+                {
+                    logger.Dispose();
+                    logger = Logger.Null;
+                };
 
                 statusTimer.Enabled = true;
                 goButton.Enabled = false;
@@ -102,11 +114,6 @@ namespace Hpdi.Vss2Git
         private void cancelButton_Click(object sender, EventArgs e)
         {
             workQueue.Abort();
-        }
-
-        private Logger OpenLog(string filename)
-        {
-            return string.IsNullOrEmpty(filename) ? Logger.Null : new Logger(filename);
         }
 
         private void statusTimer_Tick(object sender, EventArgs e)
@@ -145,14 +152,43 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        private static void ShowException(Exception exception)
+        private void ShowException(Exception exception)
         {
             var message = ExceptionFormatter.Format(exception);
             MessageBox.Show(message, "Unhandled Exception",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
+            logger.WriteLine(exception);
+        }
+
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            this.Text += " " + Assembly.GetExecutingAssembly().GetName().Version;
+
+            ReadSettings();
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            WriteSettings();
+
+            workQueue.Abort();
+            workQueue.WaitIdle();
+        }
+
+        private void ReadSettings()
+        {
+            var settings = Properties.Settings.Default;
+            vssDirTextBox.Text = settings.VssDirectory;
+            vssProjectTextBox.Text = settings.VssProject;
+            excludeTextBox.Text = settings.VssExcludePaths;
+            outDirTextBox.Text = settings.GitDirectory;
+            domainTextBox.Text = settings.DefaultEmailDomain;
+            logTextBox.Text = settings.LogFile;
+            anyCommentUpDown.Value = settings.AnyCommentSeconds;
+            sameCommentUpDown.Value = settings.SameCommentSeconds;
+        }
+
+        private void WriteSettings()
         {
             var settings = Properties.Settings.Default;
             settings.VssDirectory = vssDirTextBox.Text;
@@ -164,24 +200,6 @@ namespace Hpdi.Vss2Git
             settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
             settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
             settings.Save();
-
-            workQueue.Abort();
-            workQueue.WaitIdle();
-        }
-
-        private void MainForm_Load(object sender, EventArgs e)
-        {
-            this.Text += " " + Assembly.GetExecutingAssembly().GetName().Version;
-
-            var settings = Properties.Settings.Default;
-            vssDirTextBox.Text = settings.VssDirectory;
-            vssProjectTextBox.Text = settings.VssProject;
-            excludeTextBox.Text = settings.VssExcludePaths;
-            outDirTextBox.Text = settings.GitDirectory;
-            domainTextBox.Text = settings.DefaultEmailDomain;
-            logTextBox.Text = settings.LogFile;
-            anyCommentUpDown.Value = settings.AnyCommentSeconds;
-            sameCommentUpDown.Value = settings.SameCommentSeconds;
         }
     }
 }
