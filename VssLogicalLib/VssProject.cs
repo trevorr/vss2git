@@ -162,7 +162,7 @@ namespace Hpdi.VssLogicalLib
             {
                 this.project = project;
                 this.itemTypes = itemTypes;
-                entryFile = new ProjectEntryFile(entryFilePath);
+                entryFile = new ProjectEntryFile(entryFilePath, project.Database.Encoding);
             }
 
             public void Dispose()

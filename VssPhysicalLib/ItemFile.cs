@@ -14,6 +14,7 @@
  */
 
 using System.Collections.Generic;
+using System.Text;
 
 namespace Hpdi.VssPhysicalLib
 {
@@ -30,8 +31,8 @@ namespace Hpdi.VssPhysicalLib
             get { return header; }
         }
 
-        public ItemFile(string filename)
-            : base(filename)
+        public ItemFile(string filename, Encoding encoding)
+            : base(filename, encoding)
         {
             try
             {

@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+using System.Text;
+
 namespace Hpdi.VssLogicalLib
 {
     /// <summary>
@@ -23,6 +25,13 @@ namespace Hpdi.VssLogicalLib
     {
         private readonly string path;
 
+        private Encoding encoding = Encoding.Default;
+        public Encoding Encoding
+        {
+            get { return encoding; }
+            set { encoding = value; }
+        }
+
         public VssDatabaseFactory(string path)
         {
             this.path = path;
@@ -30,7 +39,7 @@ namespace Hpdi.VssLogicalLib
 
         public VssDatabase Open()
         {
-            return new VssDatabase(path);
+            return new VssDatabase(path, encoding);
         }
     }
 }

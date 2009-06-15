@@ -14,9 +14,11 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
-using System.Reflection;
 
 namespace Hpdi.Vss2Git
 {
@@ -26,6 +28,7 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     public partial class MainForm : Form
     {
+        private readonly Dictionary<int, EncodingInfo> codePages = new Dictionary<int, EncodingInfo>();
         private readonly WorkQueue workQueue = new WorkQueue(1);
         private Logger logger = Logger.Null;
         private RevisionAnalyzer revisionAnalyzer;
@@ -49,7 +52,20 @@ namespace Hpdi.Vss2Git
 
                 WriteSettings();
 
+                Encoding encoding = Encoding.Default;
+                EncodingInfo encodingInfo;
+                if (codePages.TryGetValue(encodingComboBox.SelectedIndex, out encodingInfo))
+                {
+                    encoding = encodingInfo.GetEncoding();
+                }
+
+                logger.WriteLine("VSS encoding: {0} (CP: {1}, IANA: {2}",
+                    encoding.EncodingName, encoding.CodePage, encoding.WebName);
+                logger.WriteLine("Comment transcoding: {0}",
+                    transcodeCheckBox.Checked ? "enabled" : "disabled");
+
                 var df = new VssDatabaseFactory(vssDirTextBox.Text);
+                df.Encoding = encoding;
                 var db = df.Open();
 
                 var path = vssProjectTextBox.Text;
@@ -92,6 +108,10 @@ namespace Hpdi.Vss2Git
                     if (!string.IsNullOrEmpty(domainTextBox.Text))
                     {
                         gitExporter.EmailDomain = domainTextBox.Text;
+                    }
+                    if (!transcodeCheckBox.Checked)
+                    {
+                        gitExporter.CommitEncoding = encoding;
                     }
                     gitExporter.ExportToGit(outDirTextBox.Text);
                 }
@@ -163,6 +183,24 @@ namespace Hpdi.Vss2Git
         private void MainForm_Load(object sender, EventArgs e)
         {
             this.Text += " " + Assembly.GetExecutingAssembly().GetName().Version;
+
+            var defaultCodePage = Encoding.Default.CodePage;
+            var description = string.Format("System default - {0}", Encoding.Default.EncodingName);
+            var defaultIndex = encodingComboBox.Items.Add(description);
+            encodingComboBox.SelectedIndex = defaultIndex;
+
+            var encodings = Encoding.GetEncodings();
+            foreach (var encoding in encodings)
+            {
+                var codePage = encoding.CodePage;
+                description = string.Format("CP{0} - {1}", codePage, encoding.DisplayName);
+                var index = encodingComboBox.Items.Add(description);
+                codePages[index] = encoding;
+                if (codePage == defaultCodePage)
+                {
+                    codePages[defaultIndex] = encoding;
+                }
+            }
 
             ReadSettings();
         }

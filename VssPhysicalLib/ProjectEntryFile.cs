@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+using System.Text;
+
 namespace Hpdi.VssPhysicalLib
 {
     /// <summary>
@@ -21,8 +23,8 @@ namespace Hpdi.VssPhysicalLib
     /// <author>Trevor Robinson</author>
     public class ProjectEntryFile : VssRecordFile
     {
-        public ProjectEntryFile(string filename)
-            : base(filename)
+        public ProjectEntryFile(string filename, Encoding encoding)
+            : base(filename, encoding)
         {
         }
 

@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
@@ -45,6 +46,13 @@ namespace Hpdi.Vss2Git
             set { emailDomain = value; }
         }
 
+        private Encoding commitEncoding = Encoding.UTF8;
+        public Encoding CommitEncoding
+        {
+            get { return commitEncoding; }
+            set { commitEncoding = value; }
+        }
+
         public GitExporter(WorkQueue workQueue, Logger logger,
             RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder)
             : base(workQueue, logger)
@@ -70,6 +78,7 @@ namespace Hpdi.Vss2Git
                 }
 
                 var git = new GitWrapper(repoPath, logger);
+                git.CommitEncoding = commitEncoding;
 
                 while (!git.FindExecutable())
                 {
@@ -87,6 +96,14 @@ namespace Hpdi.Vss2Git
                 if (!RetryCancel(delegate { git.Init(); }))
                 {
                     return;
+                }
+
+                if (commitEncoding.WebName != "utf-8")
+                {
+                    AbortRetryIgnore(delegate
+                    {
+                        git.SetConfig("i18n.commitencoding", commitEncoding.WebName);
+                    });
                 }
 
                 var pathMapper = new VssPathMapper();

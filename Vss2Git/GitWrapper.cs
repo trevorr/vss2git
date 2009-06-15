@@ -34,6 +34,7 @@ namespace Hpdi.Vss2Git
         private readonly Stopwatch stopwatch = new Stopwatch();
         private string gitExecutable = "git.exe";
         private string gitInitialArguments = null;
+        private Encoding commitEncoding = Encoding.UTF8;
 
         public TimeSpan ElapsedTime
         {
@@ -50,6 +51,12 @@ namespace Hpdi.Vss2Git
         {
             get { return gitInitialArguments; }
             set { gitInitialArguments = value; }
+        }
+
+        public Encoding CommitEncoding
+        {
+            get { return commitEncoding; }
+            set { commitEncoding = value; }
         }
 
         public GitWrapper(string repoPath, Logger logger)
@@ -79,6 +86,11 @@ namespace Hpdi.Vss2Git
         public void Init()
         {
             GitExec("init");
+        }
+
+        public void SetConfig(string name, string value)
+        {
+            GitExec("config " + name + " " + Quote(value));
         }
 
         public bool Add(string path)
@@ -134,39 +146,99 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        public bool Commit(string authorName, string authorEmail, string comment, DateTime localTime)
+        class TempFile : IDisposable
         {
-            var args = "commit";
-            if (!string.IsNullOrEmpty(comment))
+            private readonly string name;
+            private readonly FileStream fileStream;
+
+            public string Name
             {
-                args += " -m " + Quote(comment);
+                get { return name; }
             }
 
-            // convert local time to UTC based on whether DST was in effect at the time
-            var utcTime = TimeZoneInfo.ConvertTimeToUtc(localTime);
+            public TempFile()
+            {
+                name = Path.GetTempFileName();
+                fileStream = new FileStream(name, FileMode.Truncate, FileAccess.Write, FileShare.Read);
+            }
 
-            // format time according to RFC 2822
-            var utcTimeStr = utcTime.ToString("ddd MMM dd HH':'mm':'ss yyyy +0000");
+            public void Write(string text, Encoding encoding)
+            {
+                var bytes = encoding.GetBytes(text);
+                fileStream.Write(bytes, 0, bytes.Length);
+            }
 
-            var startInfo = GetStartInfo(args);
-            startInfo.EnvironmentVariables["GIT_AUTHOR_NAME"] = authorName;
-            startInfo.EnvironmentVariables["GIT_AUTHOR_EMAIL"] = authorEmail;
-            startInfo.EnvironmentVariables["GIT_AUTHOR_DATE"] = utcTimeStr;
+            public void Dispose()
+            {
+                if (fileStream != null)
+                {
+                    fileStream.Dispose();
+                }
+                if (name != null)
+                {
+                    File.Delete(name);
+                }
+            }
+        }
 
-            // ignore empty commits, since they are non-trivial to detect
-            // (e.g. when renaming a directory)
-            return ExecuteUnless(startInfo, "nothing to commit");
+        private void AddComment(string comment, ref string args, out TempFile tempFile)
+        {
+            tempFile = null;
+            if (!string.IsNullOrEmpty(comment))
+            {
+                // need to use a temporary file to specify the comment when not
+                // using the system default code page
+                if (commitEncoding.CodePage != Encoding.Default.CodePage)
+                {
+                    tempFile = new TempFile();
+                    tempFile.Write(comment, commitEncoding);
+                    args += " -F " + tempFile.Name;
+                }
+                else
+                {
+                    args += " -m " + Quote(comment);
+                }
+            }
+        }
+
+        public bool Commit(string authorName, string authorEmail, string comment, DateTime localTime)
+        {
+            TempFile commentFile;
+
+            var args = "commit";
+            AddComment(comment, ref args, out commentFile);
+
+            using (commentFile)
+            {
+                // convert local time to UTC based on whether DST was in effect at the time
+                var utcTime = TimeZoneInfo.ConvertTimeToUtc(localTime);
+
+                // format time according to RFC 2822
+                var utcTimeStr = utcTime.ToString("ddd MMM dd HH':'mm':'ss yyyy +0000");
+
+                var startInfo = GetStartInfo(args);
+                startInfo.EnvironmentVariables["GIT_AUTHOR_NAME"] = authorName;
+                startInfo.EnvironmentVariables["GIT_AUTHOR_EMAIL"] = authorEmail;
+                startInfo.EnvironmentVariables["GIT_AUTHOR_DATE"] = utcTimeStr;
+
+                // ignore empty commits, since they are non-trivial to detect
+                // (e.g. when renaming a directory)
+                return ExecuteUnless(startInfo, "nothing to commit");
+            }
         }
 
         public void Tag(string name, string comment)
         {
+            TempFile commentFile;
+
             // tag names are not quoted because they cannot contain whitespace or quotes
             var args = "tag " + name;
-            if (!string.IsNullOrEmpty(comment))
+            AddComment(comment, ref args, out commentFile);
+
+            using (commentFile)
             {
-                args += " -m " + Quote(comment);
+                GitExec(args);
             }
-            GitExec(args);
         }
 
         private void GitExec(string args)

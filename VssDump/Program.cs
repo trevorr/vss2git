@@ -97,7 +97,7 @@ namespace Hpdi.VssDump
         {
             try
             {
-                var itemFile = new ItemFile(filename);
+                var itemFile = new ItemFile(filename, Encoding.Default);
                 itemFile.Header.Header.Dump(Console.Out);
                 itemFile.Header.Dump(Console.Out);
                 var record = itemFile.GetNextRecord(true);
@@ -130,7 +130,7 @@ namespace Hpdi.VssDump
         {
             try
             {
-                var nameFile = new NameFile(filename);
+                var nameFile = new NameFile(filename, Encoding.Default);
                 nameFile.Header.Header.Dump(Console.Out);
                 nameFile.Header.Dump(Console.Out);
                 var name = nameFile.GetNextName();

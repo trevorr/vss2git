@@ -14,6 +14,7 @@
  */
 
 using System.IO;
+using System.Text;
 
 namespace Hpdi.VssPhysicalLib
 {
@@ -31,10 +32,10 @@ namespace Hpdi.VssPhysicalLib
             get { return filename; }
         }
 
-        public VssRecordFile(string filename)
+        public VssRecordFile(string filename, Encoding encoding)
         {
             this.filename = filename;
-            reader = new BufferReader(ReadFile(filename));
+            reader = new BufferReader(encoding, ReadFile(filename));
         }
 
         public void ReadRecord(VssRecord record)

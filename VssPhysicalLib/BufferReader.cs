@@ -25,17 +25,19 @@ namespace Hpdi.VssPhysicalLib
     /// <author>Trevor Robinson</author>
     public class BufferReader
     {
+        private readonly Encoding encoding;
         private readonly byte[] data;
         private int offset;
         private int limit;
 
-        public BufferReader(byte[] data)
-            : this(data, 0, data.Length)
+        public BufferReader(Encoding encoding, byte[] data)
+            : this(encoding, data, 0, data.Length)
         {
         }
 
-        public BufferReader(byte[] data, int offset, int limit)
+        public BufferReader(Encoding encoding, byte[] data, int offset, int limit)
         {
+            this.encoding = encoding;
             this.data = data;
             this.offset = offset;
             this.limit = limit;
@@ -122,15 +124,17 @@ namespace Hpdi.VssPhysicalLib
         public string ReadString(int fieldSize)
         {
             CheckRead(fieldSize);
-            StringBuilder buf = new StringBuilder(fieldSize);
+
+            int count = 0;
             for (int i = 0; i < fieldSize; ++i)
             {
-                char c = (char)data[offset + i];
-                if (c == 0) break;
-                buf.Append(c);
+                if (data[offset + i] == 0) break;
+                ++count;
             }
+
             offset += fieldSize;
-            return buf.ToString();
+
+            return encoding.GetString(data, offset, count);
         }
 
         public string ReadByteString(int bytes)
@@ -144,7 +148,7 @@ namespace Hpdi.VssPhysicalLib
         public BufferReader Extract(int bytes)
         {
             CheckRead(bytes);
-            return new BufferReader(data, offset, offset += bytes);
+            return new BufferReader(encoding, data, offset, offset += bytes);
         }
 
         public ArraySegment<byte> GetBytes(int bytes)

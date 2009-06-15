@@ -15,6 +15,7 @@
 
 using System;
 using System.IO;
+using System.Text;
 using Hpdi.VssPhysicalLib;
 
 namespace Hpdi.VssLogicalLib
@@ -35,6 +36,7 @@ namespace Hpdi.VssLogicalLib
         private readonly string dataPath;
         private readonly NameFile nameFile;
         private readonly VssProject rootProject;
+        private readonly Encoding encoding;
 
         public string BasePath
         {
@@ -54,6 +56,11 @@ namespace Hpdi.VssLogicalLib
         public VssProject RootProject
         {
             get { return rootProject; }
+        }
+
+        public Encoding Encoding
+        {
+            get { return encoding; }
         }
 
         public VssItem GetItem(string logicalPath)
@@ -102,7 +109,7 @@ namespace Hpdi.VssLogicalLib
             }
 
             var physicalPath = GetDataPath(physicalName);
-            var itemFile = new ItemFile(physicalPath);
+            var itemFile = new ItemFile(physicalPath, encoding);
             var isProject = (itemFile.Header.ItemType == ItemType.Project);
             var logicalName = GetFullName(itemFile.Header.Name);
             var itemName = new VssItemName(logicalName, physicalName, isProject);
@@ -128,9 +135,10 @@ namespace Hpdi.VssLogicalLib
             return File.Exists(physicalPath);
         }
 
-        internal VssDatabase(string path)
+        internal VssDatabase(string path, Encoding encoding)
         {
             this.basePath = path;
+            this.encoding = encoding;
 
             iniPath = Path.Combine(path, "srcsafe.ini");
             var iniReader = new SimpleIniReader(iniPath);
@@ -139,7 +147,7 @@ namespace Hpdi.VssLogicalLib
             dataPath = Path.Combine(path, iniReader.GetValue("Data_Path", "data"));
 
             var namesPath = Path.Combine(dataPath, "names.dat");
-            nameFile = new NameFile(namesPath);
+            nameFile = new NameFile(namesPath, encoding);
 
             rootProject = OpenProject(null, RootProjectFile, RootProjectName);
         }

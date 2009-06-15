@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+using System.Text;
+
 namespace Hpdi.VssPhysicalLib
 {
     /// <summary>
@@ -28,8 +30,8 @@ namespace Hpdi.VssPhysicalLib
             get { return header; }
         }
 
-        public NameFile(string filename)
-            : base(filename)
+        public NameFile(string filename, Encoding encoding)
+            : base(filename, encoding)
         {
             ReadRecord(header);
         }

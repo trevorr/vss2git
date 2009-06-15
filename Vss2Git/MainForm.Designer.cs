@@ -60,6 +60,9 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.anyCommentUpDown = new System.Windows.Forms.NumericUpDown();
+            this.encodingComboBox = new System.Windows.Forms.ComboBox();
+            this.encodingLabel = new System.Windows.Forms.Label();
+            this.transcodeCheckBox = new System.Windows.Forms.CheckBox();
             this.vssGroupBox.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.outputGroupBox.SuspendLayout();
@@ -72,6 +75,8 @@
             // 
             this.vssGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.vssGroupBox.Controls.Add(this.encodingLabel);
+            this.vssGroupBox.Controls.Add(this.encodingComboBox);
             this.vssGroupBox.Controls.Add(this.excludeTextBox);
             this.vssGroupBox.Controls.Add(this.excludeLabel);
             this.vssGroupBox.Controls.Add(this.vssProjectTextBox);
@@ -80,7 +85,7 @@
             this.vssGroupBox.Controls.Add(this.vssDirLabel);
             this.vssGroupBox.Location = new System.Drawing.Point(12, 12);
             this.vssGroupBox.Name = "vssGroupBox";
-            this.vssGroupBox.Size = new System.Drawing.Size(560, 100);
+            this.vssGroupBox.Size = new System.Drawing.Size(560, 126);
             this.vssGroupBox.TabIndex = 0;
             this.vssGroupBox.TabStop = false;
             this.vssGroupBox.Text = "VSS Settings";
@@ -142,10 +147,10 @@
             // goButton
             // 
             this.goButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.goButton.Location = new System.Drawing.Point(416, 305);
+            this.goButton.Location = new System.Drawing.Point(416, 351);
             this.goButton.Name = "goButton";
             this.goButton.Size = new System.Drawing.Size(75, 23);
-            this.goButton.TabIndex = 2;
+            this.goButton.TabIndex = 3;
             this.goButton.Text = "Go!";
             this.goButton.UseVisualStyleBackColor = true;
             this.goButton.Click += new System.EventHandler(this.goButton_Click);
@@ -162,16 +167,16 @@
             this.revisionLabel,
             this.changeLabel,
             this.timeLabel});
-            this.statusStrip.Location = new System.Drawing.Point(0, 335);
+            this.statusStrip.Location = new System.Drawing.Point(0, 380);
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Size = new System.Drawing.Size(584, 22);
-            this.statusStrip.TabIndex = 4;
+            this.statusStrip.TabIndex = 5;
             this.statusStrip.Text = "statusStrip1";
             // 
             // statusLabel
             // 
             this.statusLabel.Name = "statusLabel";
-            this.statusLabel.Size = new System.Drawing.Size(284, 17);
+            this.statusLabel.Size = new System.Drawing.Size(253, 17);
             this.statusLabel.Spring = true;
             this.statusLabel.Text = "Idle";
             this.statusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -204,15 +209,16 @@
             // 
             this.outputGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.outputGroupBox.Controls.Add(this.transcodeCheckBox);
             this.outputGroupBox.Controls.Add(this.domainTextBox);
             this.outputGroupBox.Controls.Add(this.domainLabel);
             this.outputGroupBox.Controls.Add(this.outDirTextBox);
             this.outputGroupBox.Controls.Add(this.outDirLabel);
             this.outputGroupBox.Controls.Add(this.logTextBox);
             this.outputGroupBox.Controls.Add(this.logLabel);
-            this.outputGroupBox.Location = new System.Drawing.Point(12, 118);
+            this.outputGroupBox.Location = new System.Drawing.Point(12, 144);
             this.outputGroupBox.Name = "outputGroupBox";
-            this.outputGroupBox.Size = new System.Drawing.Size(560, 100);
+            this.outputGroupBox.Size = new System.Drawing.Size(560, 120);
             this.outputGroupBox.TabIndex = 1;
             this.outputGroupBox.TabStop = false;
             this.outputGroupBox.Text = "Output Settings";
@@ -275,10 +281,10 @@
             // 
             this.cancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.cancelButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.cancelButton.Location = new System.Drawing.Point(497, 305);
+            this.cancelButton.Location = new System.Drawing.Point(497, 351);
             this.cancelButton.Name = "cancelButton";
             this.cancelButton.Size = new System.Drawing.Size(75, 23);
-            this.cancelButton.TabIndex = 3;
+            this.cancelButton.TabIndex = 4;
             this.cancelButton.Text = "Cancel";
             this.cancelButton.UseVisualStyleBackColor = true;
             this.cancelButton.Click += new System.EventHandler(this.cancelButton_Click);
@@ -291,10 +297,10 @@
             this.changesetGroupBox.Controls.Add(this.label2);
             this.changesetGroupBox.Controls.Add(this.label1);
             this.changesetGroupBox.Controls.Add(this.anyCommentUpDown);
-            this.changesetGroupBox.Location = new System.Drawing.Point(12, 224);
+            this.changesetGroupBox.Location = new System.Drawing.Point(12, 270);
             this.changesetGroupBox.Name = "changesetGroupBox";
             this.changesetGroupBox.Size = new System.Drawing.Size(560, 75);
-            this.changesetGroupBox.TabIndex = 5;
+            this.changesetGroupBox.TabIndex = 2;
             this.changesetGroupBox.TabStop = false;
             this.changesetGroupBox.Text = "Changeset Building";
             // 
@@ -358,21 +364,53 @@
             this.anyCommentUpDown.Size = new System.Drawing.Size(54, 20);
             this.anyCommentUpDown.TabIndex = 1;
             // 
+            // encodingComboBox
+            // 
+            this.encodingComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.encodingComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.encodingComboBox.FormattingEnabled = true;
+            this.encodingComboBox.Location = new System.Drawing.Point(81, 97);
+            this.encodingComboBox.Name = "encodingComboBox";
+            this.encodingComboBox.Size = new System.Drawing.Size(473, 21);
+            this.encodingComboBox.TabIndex = 7;
+            // 
+            // encodingLabel
+            // 
+            this.encodingLabel.AutoSize = true;
+            this.encodingLabel.Location = new System.Drawing.Point(6, 100);
+            this.encodingLabel.Name = "encodingLabel";
+            this.encodingLabel.Size = new System.Drawing.Size(52, 13);
+            this.encodingLabel.TabIndex = 6;
+            this.encodingLabel.Text = "Encoding";
+            // 
+            // transcodeCheckBox
+            // 
+            this.transcodeCheckBox.AutoSize = true;
+            this.transcodeCheckBox.Checked = true;
+            this.transcodeCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.transcodeCheckBox.Location = new System.Drawing.Point(9, 97);
+            this.transcodeCheckBox.Name = "transcodeCheckBox";
+            this.transcodeCheckBox.Size = new System.Drawing.Size(209, 17);
+            this.transcodeCheckBox.TabIndex = 6;
+            this.transcodeCheckBox.Text = "Transcode commit comments to UTF-8";
+            this.transcodeCheckBox.UseVisualStyleBackColor = true;
+            // 
             // MainForm
             // 
             this.AcceptButton = this.goButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.cancelButton;
-            this.ClientSize = new System.Drawing.Size(584, 357);
+            this.ClientSize = new System.Drawing.Size(584, 402);
             this.Controls.Add(this.changesetGroupBox);
             this.Controls.Add(this.cancelButton);
             this.Controls.Add(this.outputGroupBox);
-            this.Controls.Add(this.statusStrip);
             this.Controls.Add(this.goButton);
             this.Controls.Add(this.vssGroupBox);
+            this.Controls.Add(this.statusStrip);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.MinimumSize = new System.Drawing.Size(450, 393);
+            this.MinimumSize = new System.Drawing.Size(450, 419);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "VSS2Git";
@@ -425,6 +463,9 @@
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.NumericUpDown sameCommentUpDown;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label encodingLabel;
+        private System.Windows.Forms.ComboBox encodingComboBox;
+        private System.Windows.Forms.CheckBox transcodeCheckBox;
 
     }
 }
