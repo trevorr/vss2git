@@ -166,6 +166,7 @@ namespace Hpdi.Vss2Git
             {
                 var bytes = encoding.GetBytes(text);
                 fileStream.Write(bytes, 0, bytes.Length);
+                fileStream.Flush();
             }
 
             public void Dispose()
@@ -190,6 +191,7 @@ namespace Hpdi.Vss2Git
                 // using the system default code page
                 if (commitEncoding.CodePage != Encoding.Default.CodePage)
                 {
+                    logger.WriteLine("Generating temp file for comment: {0}", comment);
                     tempFile = new TempFile();
                     tempFile.Write(comment, commitEncoding);
                     args += " -F " + tempFile.Name;

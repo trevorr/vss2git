@@ -33,13 +33,91 @@ namespace Hpdi.VssDump
 
         static void Main(string[] args)
         {
-            if (args.Length == 0)
+            Console.OutputEncoding = Encoding.Default;
+
+            var invalidArg = false;
+            var argIndex = 0;
+            while (argIndex < args.Length && args[argIndex].StartsWith("/"))
             {
-                Console.WriteLine("Syntax: VssDump <vss-base-path>");
+                var option = args[argIndex].Substring(1).Split(':');
+                switch (option[0])
+                {
+                    case "encoding":
+                        {
+                            string encodingName;
+                            if (option.Length > 1)
+                            {
+                                encodingName = option[1];
+                            }
+                            else if (argIndex + 1 < args.Length)
+                            {
+                                encodingName = args[++argIndex];
+                            }
+                            else
+                            {
+                                invalidArg = true;
+                                goto InvalidArg;
+                            }
+
+                            Encoding encoding;
+                            try
+                            {
+                                int codePage;
+                                if (int.TryParse(encodingName, out codePage))
+                                {
+                                    encoding = Encoding.GetEncoding(codePage);
+                                }
+                                else
+                                {
+                                    encoding = Encoding.GetEncoding(encodingName);
+                                }
+                            }
+                            catch
+                            {
+                                Console.WriteLine("Invalid encoding: {0}", encodingName);
+                                invalidArg = true;
+                                goto InvalidArg;
+                            }
+
+                            Console.OutputEncoding = encoding;
+                            break;
+                        }
+
+                    case "encodings":
+                        {
+                            var encodings = Encoding.GetEncodings();
+                            Console.WriteLine("{0,-6} {1,-25} {2}", "CP", "IANA", "Description");
+                            foreach (var encoding in encodings)
+                            {
+                                var codePage = encoding.CodePage;
+                                switch (codePage)
+                                {
+                                    case 1200:
+                                    case 1201:
+                                    case 12000:
+                                    case 12001:
+                                        // UTF-16 and 32 are managed-only
+                                        continue;
+                                }
+                                Console.WriteLine("{0,-6} {1,-25} {2}", codePage, encoding.Name, encoding.DisplayName);
+                            }
+                            return;
+                        }
+                }
+                ++argIndex;
+            }
+
+        InvalidArg:
+            if (invalidArg || argIndex >= args.Length)
+            {
+                Console.WriteLine("Syntax: VssDump [options] <vss-base-path>");
+                Console.WriteLine("Options:");
+                Console.WriteLine("  /encoding:<encoding>    Output encoding IANA name or code page");
+                Console.WriteLine("  /encodings              List supported encodings and terminate");
                 return;
             }
 
-            var repoPath = args[0];
+            var repoPath = args[argIndex];
             var df = new VssDatabaseFactory(repoPath);
             var db = df.Open();
 

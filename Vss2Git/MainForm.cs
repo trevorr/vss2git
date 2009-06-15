@@ -59,7 +59,7 @@ namespace Hpdi.Vss2Git
                     encoding = encodingInfo.GetEncoding();
                 }
 
-                logger.WriteLine("VSS encoding: {0} (CP: {1}, IANA: {2}",
+                logger.WriteLine("VSS encoding: {0} (CP: {1}, IANA: {2})",
                     encoding.EncodingName, encoding.CodePage, encoding.WebName);
                 logger.WriteLine("Comment transcoding: {0}",
                     transcodeCheckBox.Checked ? "enabled" : "disabled");

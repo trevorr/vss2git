@@ -266,7 +266,7 @@ namespace Hpdi.Vss2Git
                         break;
 
                     case VssActionType.Create:
-                        // ignored; should be filtered out by RevisionAnalyzer
+                        // ignored; items are actually created when added to a project
                         break;
 
                     case VssActionType.Add:

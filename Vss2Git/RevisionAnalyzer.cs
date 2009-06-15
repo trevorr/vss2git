@@ -185,13 +185,6 @@ namespace Hpdi.Vss2Git
             foreach (VssRevision vssRevision in item.Revisions)
             {
                 var actionType = vssRevision.Action.Type;
-                if (actionType == VssActionType.Create ||
-                    (actionType == VssActionType.Branch && !item.IsProject))
-                {
-                    // ignore Create actions; items will be created when added to a project
-                    continue;
-                }
-
                 var namedAction = vssRevision.Action as VssNamedAction;
                 if (namedAction != null)
                 {

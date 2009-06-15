@@ -132,9 +132,11 @@ namespace Hpdi.VssPhysicalLib
                 ++count;
             }
 
+            var str = encoding.GetString(data, offset, count);
+
             offset += fieldSize;
 
-            return encoding.GetString(data, offset, count);
+            return str;
         }
 
         public string ReadByteString(int bytes)

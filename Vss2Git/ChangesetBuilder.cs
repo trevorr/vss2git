@@ -72,6 +72,7 @@ namespace Hpdi.Vss2Git
                     foreach (Revision revision in dateEntry.Value)
                     {
                         // determine target of project revisions
+                        var actionType = revision.Action.Type;
                         var namedAction = revision.Action as VssNamedAction;
                         var targetFile = revision.Item.PhysicalName;
                         if (namedAction != null)
@@ -79,9 +80,14 @@ namespace Hpdi.Vss2Git
                             targetFile = namedAction.Name.PhysicalName;
                         }
 
+                        // Create actions are only used to obtain initial item comments;
+                        // items are actually created when added to a project
+                        var creating = (actionType == VssActionType.Create ||
+                            (actionType == VssActionType.Branch && !revision.Item.IsProject));
+
                         // Share actions are never conflict (which is important,
                         // since Share always precedes Branch)
-                        var nonconflicting = (revision.Action.Type == VssActionType.Share);
+                        var nonconflicting = creating || (actionType == VssActionType.Share);
 
                         // look up the pending change for user of this revision
                         // and flush changes past time threshold
