@@ -313,8 +313,13 @@ namespace Hpdi.Vss2Git
                 {
                     if (underProjectInfo == null || project.IsSameOrSubproject(underProjectInfo))
                     {
-                        var path = Path.Combine(project.GetPath(), fileInfo.LogicalName);
-                        result.AddLast(path);
+                        // ignore projects that are not rooted
+                        var projectPath = project.GetPath();
+                        if (projectPath != null)
+                        {
+                            var path = Path.Combine(projectPath, fileInfo.LogicalName);
+                            result.AddLast(path);
+                        }
                     }
                 }
             }

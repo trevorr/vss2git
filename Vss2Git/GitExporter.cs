@@ -150,12 +150,26 @@ namespace Hpdi.Vss2Git
                         foreach (Revision label in labels)
                         {
                             var labelName = ((VssLabelAction)label.Action).Label;
-                            var tagName = GetTagFromLabel(labelName);
-                            LogStatus(work, "Creating tag " + tagName);
-                            if (AbortRetryIgnore(
-                                delegate { git.Tag(tagName, label.Comment); }))
+                            if (commitCount > 0)
                             {
-                                ++tagCount;
+                                var tagName = GetTagFromLabel(labelName);
+
+                                var tagMessage = "Creating tag " + tagName;
+                                if (tagName != labelName)
+                                {
+                                    tagMessage += " for label '" + labelName + "'";
+                                }
+                                LogStatus(work, tagMessage);
+
+                                if (AbortRetryIgnore(
+                                    delegate { git.Tag(tagName, label.Comment); }))
+                                {
+                                    ++tagCount;
+                                }
+                            }
+                            else
+                            {
+                                logger.WriteLine("NOTE: Ignoring label '{0}' before initial commit", labelName);
                             }
                         }
                     }
