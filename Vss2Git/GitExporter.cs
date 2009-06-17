@@ -38,6 +38,7 @@ namespace Hpdi.Vss2Git
         private readonly RevisionAnalyzer revisionAnalyzer;
         private readonly ChangesetBuilder changesetBuilder;
         private readonly StreamCopier streamCopier = new StreamCopier();
+        private readonly HashSet<string> tagsUsed = new HashSet<string>();
 
         private string emailDomain = "localhost";
         public string EmailDomain
@@ -116,12 +117,13 @@ namespace Hpdi.Vss2Git
                 }
 
                 // replay each changeset
-                int changesetId = 1;
+                var changesetId = 1;
                 var changesets = changesetBuilder.Changesets;
                 var commitCount = 0;
                 var tagCount = 0;
                 var replayStopwatch = new Stopwatch();
                 var labels = new LinkedList<Revision>();
+                tagsUsed.Clear();
                 foreach (var changeset in changesets)
                 {
                     var changesetDesc = string.Format(CultureInfo.InvariantCulture,
@@ -547,7 +549,17 @@ namespace Hpdi.Vss2Git
         {
             // git tag names must be valid filenames, so replace sequences of
             // invalid characters with an underscore
-            return Regex.Replace(label, "[^A-Za-z0-9_-]+", "_");
+            var baseTag = Regex.Replace(label, "[^A-Za-z0-9_-]+", "_");
+
+            // git tags are global, whereas VSS tags are local, so ensure
+            // global uniqueness by appending a number
+            var tag = baseTag;
+            for (int i = 2; !tagsUsed.Add(tag); ++i)
+            {
+                tag = baseTag + "-" + i;
+            }
+
+            return tag;
         }
 
         private void WriteRevision(VssPathMapper pathMapper, VssActionType actionType,

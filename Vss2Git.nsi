@@ -1,6 +1,6 @@
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Vss2Git"
-!define PRODUCT_VERSION "1.0.4"
+!define PRODUCT_VERSION "1.0.5"
 !define PRODUCT_PUBLISHER "Trevor Robinson"
 !define PRODUCT_WEB_SITE "http://code.google.com/p/vss2git/"
 !define PRODUCT_REGISTRY_KEY "Software\Vss2Git"
