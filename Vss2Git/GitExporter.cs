@@ -344,13 +344,13 @@ namespace Hpdi.Vss2Git
                                 var projectInfo = itemInfo as VssProjectInfo;
                                 if (projectInfo == null || projectInfo.ContainsFiles())
                                 {
-                                    git.Move(sourcePath, targetPath);
+                                    CaseSensitiveRename(sourcePath, targetPath, git.Move);
                                     needCommit = true;
                                 }
                                 else
                                 {
                                     // git doesn't care about directories with no files
-                                    Directory.Move(sourcePath, targetPath);
+                                    CaseSensitiveRename(sourcePath, targetPath, Directory.Move);
                                 }
                             }
                         }
@@ -630,6 +630,42 @@ namespace Hpdi.Vss2Git
                 path, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 streamCopier.Copy(inputStream, outputStream);
+            }
+        }
+
+        private delegate void RenameDelegate(string sourcePath, string destPath);
+
+        private void CaseSensitiveRename(string sourcePath, string destPath, RenameDelegate renamer)
+        {
+            if (sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase))
+            {
+                // workaround for case-only renames on case-insensitive file systems:
+
+                var sourceDir = Path.GetDirectoryName(sourcePath);
+                var sourceFile = Path.GetFileName(sourcePath);
+                var destDir = Path.GetDirectoryName(destPath);
+                var destFile = Path.GetFileName(destPath);
+
+                if (sourceDir != destDir)
+                {
+                    // recursively rename containing directories that differ in case
+                    CaseSensitiveRename(sourceDir, destDir, renamer);
+
+                    // fix up source path based on renamed directory
+                    sourcePath = Path.Combine(destDir, sourceFile);
+                }
+
+                if (sourceFile != destFile)
+                {
+                    // use temporary filename to rename files that differ in case
+                    var tempPath = sourcePath + ".mvtmp";
+                    CaseSensitiveRename(sourcePath, tempPath, renamer);
+                    CaseSensitiveRename(tempPath, destPath, renamer);
+                }
+            }
+            else
+            {
+                renamer(sourcePath, destPath);
             }
         }
     }

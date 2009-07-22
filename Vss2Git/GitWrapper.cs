@@ -131,19 +131,7 @@ namespace Hpdi.Vss2Git
 
         public void Move(string sourcePath, string destPath)
         {
-            if (sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase))
-            {
-                // workaround for git not supporting case preservation on case-
-                // insensitive file systems; note that this is only intended to
-                // support a case change in the last segment of the path
-                var tempPath = sourcePath + ".gitmvtmp";
-                Move(sourcePath, tempPath);
-                Move(tempPath, destPath);
-            }
-            else
-            {
-                GitExec("mv " + Quote(sourcePath) + " " + Quote(destPath));
-            }
+            GitExec("mv " + Quote(sourcePath) + " " + Quote(destPath));
         }
 
         class TempFile : IDisposable
@@ -194,7 +182,9 @@ namespace Hpdi.Vss2Git
                     logger.WriteLine("Generating temp file for comment: {0}", comment);
                     tempFile = new TempFile();
                     tempFile.Write(comment, commitEncoding);
-                    args += " -F " + tempFile.Name;
+
+                    // temporary path might contain spaces (e.g. "Documents and Settings")
+                    args += " -F " + Quote(tempFile.Name);
                 }
                 else
                 {
