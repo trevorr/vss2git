@@ -95,7 +95,7 @@ namespace Hpdi.Vss2Git
 
         public bool Add(string path)
         {
-            var startInfo = GetStartInfo("add " + Quote(path));
+            var startInfo = GetStartInfo("add -- " + Quote(path));
 
             // add fails if there are no files (directories don't count)
             return ExecuteUnless(startInfo, "did not match any files");
@@ -108,7 +108,7 @@ namespace Hpdi.Vss2Git
                 return false;
             }
 
-            var args = new StringBuilder("add ");
+            var args = new StringBuilder("add -- ");
             CollectionUtil.Join(args, " ", CollectionUtil.Transform<string, string>(paths, Quote));
             var startInfo = GetStartInfo(args.ToString());
 
@@ -126,12 +126,12 @@ namespace Hpdi.Vss2Git
 
         public void Remove(string path, bool recursive)
         {
-            GitExec("rm " + (recursive ? "-r " : "") + Quote(path));
+            GitExec("rm " + (recursive ? "-r " : "") + "-- " + Quote(path));
         }
 
         public void Move(string sourcePath, string destPath)
         {
-            GitExec("mv " + Quote(sourcePath) + " " + Quote(destPath));
+            GitExec("mv -- " + Quote(sourcePath) + " " + Quote(destPath));
         }
 
         class TempFile : IDisposable
@@ -223,9 +223,11 @@ namespace Hpdi.Vss2Git
         {
             TempFile commentFile;
 
-            // tag names are not quoted because they cannot contain whitespace or quotes
-            var args = "tag " + name;
+            var args = "tag";
             AddComment(comment, ref args, out commentFile);
+
+            // tag names are not quoted because they cannot contain whitespace or quotes
+            args += " -- " + name;
 
             using (commentFile)
             {

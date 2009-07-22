@@ -169,7 +169,15 @@ namespace Hpdi.Vss2Git
                         foreach (Revision label in labels)
                         {
                             var labelName = ((VssLabelAction)label.Action).Label;
-                            if (commitCount > 0)
+                            if (string.IsNullOrEmpty(labelName))
+                            {
+                                logger.WriteLine("NOTE: Ignoring empty label");
+                            }
+                            else if (commitCount == 0)
+                            {
+                                logger.WriteLine("NOTE: Ignoring label '{0}' before initial commit", labelName);
+                            }
+                            else
                             {
                                 var tagName = GetTagFromLabel(labelName);
 
@@ -185,10 +193,6 @@ namespace Hpdi.Vss2Git
                                 {
                                     ++tagCount;
                                 }
-                            }
-                            else
-                            {
-                                logger.WriteLine("NOTE: Ignoring label '{0}' before initial commit", labelName);
                             }
                         }
                     }
@@ -448,6 +452,14 @@ namespace Hpdi.Vss2Git
                 {
                     if (writeProject && pathMapper.IsProjectRooted(target.PhysicalName))
                     {
+                        // create all contained subdirectories
+                        foreach (var projectInfo in pathMapper.GetAllProjects(target.PhysicalName))
+                        {
+                            logger.WriteLine("{0}: Creating subdirectory {1}",
+                                projectDesc, projectInfo.Subpath);
+                            Directory.CreateDirectory(projectInfo.GetPath());
+                        }
+                        
                         // write current rev of all contained files
                         foreach (var fileInfo in pathMapper.GetAllFiles(target.PhysicalName))
                         {
@@ -461,6 +473,9 @@ namespace Hpdi.Vss2Git
                         // write current rev to working path
                         int version = pathMapper.GetFileVersion(target.PhysicalName);
                         WriteRevisionTo(target.PhysicalName, version, targetPath);
+
+                        // add file explicitly, so it is visible to subsequent git operations
+                        git.Add(targetPath);
                         needCommit = true;
                     }
                 }
@@ -570,6 +585,9 @@ namespace Hpdi.Vss2Git
             {
                 logger.WriteLine("{0}: {1} revision {2}", path, actionType, version);
                 WriteRevisionTo(physicalName, version, path);
+
+                // add file explicitly, so it is visible to subsequent git operations
+                git.Add(path);
             }
         }
 

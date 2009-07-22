@@ -204,6 +204,33 @@ namespace Hpdi.Vss2Git
                 }
             }
         }
+
+        public IEnumerable<VssProjectInfo> GetAllProjects()
+        {
+            var subprojects = new LinkedList<VssProjectInfo>();
+            var project = this;
+            while (project != null)
+            {
+                foreach (var item in project.items)
+                {
+                    var subproject = item as VssProjectInfo;
+                    if (subproject != null)
+                    {
+                        subprojects.AddLast(subproject);
+                        yield return subproject;
+                    }
+                }
+                if (subprojects.First != null)
+                {
+                    project = subprojects.First.Value;
+                    subprojects.RemoveFirst();
+                }
+                else
+                {
+                    project = null;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -291,6 +318,16 @@ namespace Hpdi.Vss2Git
             if (projectInfos.TryGetValue(project, out projectInfo))
             {
                 return projectInfo.GetAllFiles();
+            }
+            return null;
+        }
+
+        public IEnumerable<VssProjectInfo> GetAllProjects(string project)
+        {
+            VssProjectInfo projectInfo;
+            if (projectInfos.TryGetValue(project, out projectInfo))
+            {
+                return projectInfo.GetAllProjects();
             }
             return null;
         }

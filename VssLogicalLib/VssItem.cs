@@ -137,7 +137,9 @@ namespace Hpdi.VssLogicalLib
         protected VssRevision CreateRevision(RevisionRecord revision)
         {
             CommentRecord comment = null;
-            if (revision.CommentLength > 0 && revision.CommentOffset > 0)
+            int commentLength = (revision.Action == Action.Label) ?
+                revision.LabelCommentLength : revision.CommentLength;
+            if (commentLength > 0 && revision.CommentOffset > 0)
             {
                 comment = new CommentRecord();
                 ItemFile.ReadRecord(comment, revision.CommentOffset);
