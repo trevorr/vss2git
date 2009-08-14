@@ -43,7 +43,7 @@ namespace Hpdi.VssPhysicalLib
             if (signature != expected)
             {
                 throw new RecordNotFoundException(string.Format(
-                    "Unexpected record signature: expected={1}, actual={2}",
+                    "Unexpected record signature: expected={0}, actual={1}",
                     expected, signature));
             }
         }

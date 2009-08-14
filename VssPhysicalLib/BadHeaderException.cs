@@ -21,7 +21,7 @@ namespace Hpdi.VssPhysicalLib
     /// Exception thrown when an invalid record header is read.
     /// </summary>
     /// <author>Trevor Robinson</author>
-    public class BadHeaderException : Exception
+    public class BadHeaderException : RecordException
     {
         public BadHeaderException()
         {

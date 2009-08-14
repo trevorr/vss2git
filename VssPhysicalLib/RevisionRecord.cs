@@ -67,7 +67,7 @@ namespace Hpdi.VssPhysicalLib
         protected string user;
         protected string label;
         protected int commentOffset; // or next revision if no comment
-        protected int nextDeltaOffset; // or label comment
+        protected int labelCommentOffset; // or label comment
         protected int commentLength;
         protected int labelCommentLength;
 
@@ -79,7 +79,7 @@ namespace Hpdi.VssPhysicalLib
         public string User { get { return user; } }
         public string Label { get { return label; } }
         public int CommentOffset { get { return commentOffset; } }
-        public int NextDeltaOffset { get { return nextDeltaOffset; } }
+        public int LabelCommentOffset { get { return labelCommentOffset; } }
         public int CommentLength { get { return commentLength; } }
         public int LabelCommentLength { get { return labelCommentLength; } }
 
@@ -108,7 +108,7 @@ namespace Hpdi.VssPhysicalLib
             user = reader.ReadString(32);
             label = reader.ReadString(32);
             commentOffset = reader.ReadInt32();
-            nextDeltaOffset = reader.ReadInt32();
+            labelCommentOffset = reader.ReadInt32();
             commentLength = reader.ReadInt16();
             labelCommentLength = reader.ReadInt16();
         }
@@ -119,10 +119,8 @@ namespace Hpdi.VssPhysicalLib
             writer.WriteLine("  #{0:D3} {1} by '{2}' at {3}",
                 revision, action, user, dateTime);
             writer.WriteLine("  Label: {0}", label);
-            writer.WriteLine("  Comment offset: {0:X6}", commentOffset);
-            writer.WriteLine("  Comment length: {0}", commentLength);
-            writer.WriteLine("  Label comment length: {0}", labelCommentLength);
-            writer.WriteLine("  Next delta offset: {0:X6}", nextDeltaOffset);
+            writer.WriteLine("  Comment: length {0}, offset {1:X6}", commentLength, commentOffset);
+            writer.WriteLine("  Label comment: length {0}, offset {1:X6}", labelCommentLength, labelCommentOffset);
         }
     }
 

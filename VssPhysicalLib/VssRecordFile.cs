@@ -40,31 +40,7 @@ namespace Hpdi.VssPhysicalLib
 
         public void ReadRecord(VssRecord record)
         {
-            RecordHeader recordHeader = new RecordHeader();
-            recordHeader.Read(reader);
-
-            BufferReader recordReader = reader.Extract(recordHeader.Length);
-
-            // comment records always seem to have a zero CRC
-            if (recordHeader.Signature != CommentRecord.SIGNATURE)
-            {
-                recordHeader.CheckCrc();
-            }
-
-            recordHeader.CheckSignature(record.Signature);
-
-            record.Read(recordReader, recordHeader);
-        }
-
-        public void ReadRecord(VssRecord record, int offset)
-        {
-            reader.Offset = offset;
-            ReadRecord(record);
-        }
-
-        public bool ReadNextRecord(VssRecord record)
-        {
-            while (reader.Remaining > RecordHeader.LENGTH)
+            try
             {
                 RecordHeader recordHeader = new RecordHeader();
                 recordHeader.Read(reader);
@@ -77,10 +53,48 @@ namespace Hpdi.VssPhysicalLib
                     recordHeader.CheckCrc();
                 }
 
-                if (recordHeader.Signature == record.Signature)
+                recordHeader.CheckSignature(record.Signature);
+
+                record.Read(recordReader, recordHeader);
+            }
+            catch (EndOfBufferException e)
+            {
+                throw new RecordTruncatedException(e.Message);
+            }
+        }
+
+        public void ReadRecord(VssRecord record, int offset)
+        {
+            reader.Offset = offset;
+            ReadRecord(record);
+        }
+
+        public bool ReadNextRecord(VssRecord record)
+        {
+            while (reader.Remaining > RecordHeader.LENGTH)
+            {
+                try
                 {
-                    record.Read(recordReader, recordHeader);
-                    return true;
+                    RecordHeader recordHeader = new RecordHeader();
+                    recordHeader.Read(reader);
+
+                    BufferReader recordReader = reader.Extract(recordHeader.Length);
+
+                    // comment records always seem to have a zero CRC
+                    if (recordHeader.Signature != CommentRecord.SIGNATURE)
+                    {
+                        recordHeader.CheckCrc();
+                    }
+
+                    if (recordHeader.Signature == record.Signature)
+                    {
+                        record.Read(recordReader, recordHeader);
+                        return true;
+                    }
+                }
+                catch (EndOfBufferException e)
+                {
+                    throw new RecordTruncatedException(e.Message);
                 }
             }
             return false;

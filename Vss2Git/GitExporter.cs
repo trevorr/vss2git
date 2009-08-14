@@ -84,7 +84,7 @@ namespace Hpdi.Vss2Git
                 while (!git.FindExecutable())
                 {
                     var button = MessageBox.Show("Git not found in PATH. " +
-                        "If you need to modify your PATH variable, please " + 
+                        "If you need to modify your PATH variable, please " +
                         "restart the program for the changes to take effect.",
                         "Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
                     if (button == DialogResult.Cancel)
@@ -189,7 +189,11 @@ namespace Hpdi.Vss2Git
                                 LogStatus(work, tagMessage);
 
                                 if (AbortRetryIgnore(
-                                    delegate { git.Tag(tagName, label.Comment); }))
+                                    delegate
+                                    {
+                                        git.Tag(tagName, label.User, GetEmail(label.User),
+                                            label.Comment, label.DateTime);
+                                    }))
                                 {
                                     ++tagCount;
                                 }
@@ -262,6 +266,7 @@ namespace Hpdi.Vss2Git
                     }
                 }
 
+                bool isAddAction = false;
                 bool writeProject = false;
                 bool writeFile = false;
                 switch (actionType)
@@ -277,28 +282,15 @@ namespace Hpdi.Vss2Git
 
                     case VssActionType.Add:
                     case VssActionType.Share:
+                        logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
+                        pathMapper.AddItem(project, target);
+                        isAddAction = true;
+                        break;
+
                     case VssActionType.Recover:
                         logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
-                        if (actionType == VssActionType.Recover)
-                        {
-                            pathMapper.RecoverItem(project, target);
-                        }
-                        else
-                        {
-                            pathMapper.AddItem(project, target);
-                        }
-                        if (targetPath != null)
-                        {
-                            if (target.IsProject)
-                            {
-                                Directory.CreateDirectory(targetPath);
-                                writeProject = true;
-                            }
-                            else
-                            {
-                                writeFile = true;
-                            }
-                        }
+                        pathMapper.RecoverItem(project, target);
+                        isAddAction = true;
                         break;
 
                     case VssActionType.Delete:
@@ -439,17 +431,31 @@ namespace Hpdi.Vss2Git
                         break;
 
                     case VssActionType.Restore:
-                        // currently ignored
                         {
                             var restoreAction = (VssRestoreAction)revision.Action;
-                            logger.WriteLine("{0}: Restore {1} from archive {2} (ignored)",
+                            logger.WriteLine("{0}: Restore {1} from archive {2}",
                                 projectDesc, target.LogicalName, restoreAction.ArchivePath);
+                            pathMapper.AddItem(project, target);
+                            isAddAction = true;
                         }
                         break;
                 }
 
                 if (targetPath != null)
                 {
+                    if (isAddAction)
+                    {
+                        if (target.IsProject)
+                        {
+                            Directory.CreateDirectory(targetPath);
+                            writeProject = true;
+                        }
+                        else
+                        {
+                            writeFile = true;
+                        }
+                    }
+
                     if (writeProject && pathMapper.IsProjectRooted(target.PhysicalName))
                     {
                         // create all contained subdirectories
@@ -459,7 +465,7 @@ namespace Hpdi.Vss2Git
                                 projectDesc, projectInfo.Subpath);
                             Directory.CreateDirectory(projectInfo.GetPath());
                         }
-                        
+
                         // write current rev of all contained files
                         foreach (var fileInfo in pathMapper.GetAllFiles(target.PhysicalName))
                         {
@@ -529,9 +535,7 @@ namespace Hpdi.Vss2Git
                 }
                 catch (Exception e)
                 {
-                    var message = ExceptionFormatter.Format(e);
-                    logger.WriteLine("ERROR: {0}", message);
-                    logger.WriteLine(e);
+                    var message = LogException(e);
 
                     message += "\nSee log file for more information.";
 
@@ -567,9 +571,10 @@ namespace Hpdi.Vss2Git
             var baseTag = Regex.Replace(label, "[^A-Za-z0-9_-]+", "_");
 
             // git tags are global, whereas VSS tags are local, so ensure
-            // global uniqueness by appending a number
+            // global uniqueness by appending a number; since the file system
+            // may be case-insensitive, ignore case when hashing tags
             var tag = baseTag;
-            for (int i = 2; !tagsUsed.Add(tag); ++i)
+            for (int i = 2; !tagsUsed.Add(tag.ToUpperInvariant()); ++i)
             {
                 tag = baseTag + "-" + i;
             }

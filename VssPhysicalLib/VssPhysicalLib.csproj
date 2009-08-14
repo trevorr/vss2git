@@ -39,6 +39,7 @@
     <Compile Include="BufferReader.cs" />
     <Compile Include="CheckoutRecord.cs" />
     <Compile Include="CommentRecord.cs" />
+    <Compile Include="RecordTruncatedException.cs" />
     <Compile Include="DeltaStream.cs" />
     <Compile Include="ProjectEntryFile.cs" />
     <Compile Include="ProjectEntryRecord.cs" />
@@ -57,6 +58,7 @@
     <Compile Include="ProjectRecord.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RecordCrcException.cs" />
+    <Compile Include="RecordException.cs" />
     <Compile Include="RecordHeader.cs" />
     <Compile Include="RecordNotFoundException.cs" />
     <Compile Include="RevisionRecord.cs" />

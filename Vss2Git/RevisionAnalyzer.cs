@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using Hpdi.VssLogicalLib;
+using Hpdi.VssPhysicalLib;
 
 namespace Hpdi.Vss2Git
 {
@@ -182,40 +183,50 @@ namespace Hpdi.Vss2Git
 
         private void ProcessItem(VssItem item, string path, PathMatcher exclusionMatcher)
         {
-            foreach (VssRevision vssRevision in item.Revisions)
+            try
             {
-                var actionType = vssRevision.Action.Type;
-                var namedAction = vssRevision.Action as VssNamedAction;
-                if (namedAction != null)
+                foreach (VssRevision vssRevision in item.Revisions)
                 {
-                    if (actionType == VssActionType.Destroy)
+                    var actionType = vssRevision.Action.Type;
+                    var namedAction = vssRevision.Action as VssNamedAction;
+                    if (namedAction != null)
                     {
-                        // track destroyed files so missing history can be anticipated
-                        // (note that Destroy actions on shared files simply delete
-                        // that copy, so destroyed files can't be completely ignored)
-                        destroyedFiles.Add(namedAction.Name.PhysicalName);
+                        if (actionType == VssActionType.Destroy)
+                        {
+                            // track destroyed files so missing history can be anticipated
+                            // (note that Destroy actions on shared files simply delete
+                            // that copy, so destroyed files can't be completely ignored)
+                            destroyedFiles.Add(namedAction.Name.PhysicalName);
+                        }
+
+                        var targetPath = path + VssDatabase.ProjectSeparator + namedAction.Name.LogicalName;
+                        if (exclusionMatcher != null && exclusionMatcher.Matches(targetPath))
+                        {
+                            // project action targets an excluded file
+                            continue;
+                        }
                     }
 
-                    var targetPath = path + VssDatabase.ProjectSeparator + namedAction.Name.LogicalName;
-                    if (exclusionMatcher != null && exclusionMatcher.Matches(targetPath))
+                    Revision revision = new Revision(vssRevision.DateTime,
+                        vssRevision.User, item.ItemName, vssRevision.Version,
+                        vssRevision.Comment, vssRevision.Action);
+
+                    ICollection<Revision> revisionSet;
+                    if (!sortedRevisions.TryGetValue(vssRevision.DateTime, out revisionSet))
                     {
-                        // project action targets an excluded file
-                        continue;
+                        revisionSet = new LinkedList<Revision>();
+                        sortedRevisions[vssRevision.DateTime] = revisionSet;
                     }
+                    revisionSet.Add(revision);
+                    ++revisionCount;
                 }
-
-                Revision revision = new Revision(vssRevision.DateTime,
-                    vssRevision.User, item.ItemName, vssRevision.Version,
-                    vssRevision.Comment, vssRevision.Action);
-
-                ICollection<Revision> revisionSet;
-                if (!sortedRevisions.TryGetValue(vssRevision.DateTime, out revisionSet))
-                {
-                    revisionSet = new LinkedList<Revision>();
-                    sortedRevisions[vssRevision.DateTime] = revisionSet;
-                }
-                revisionSet.Add(revision);
-                ++revisionCount;
+            }
+            catch (RecordException e)
+            {
+                var message = string.Format("Failed to read revisions for {0} ({1}): {2}",
+                    path, item.PhysicalName, ExceptionFormatter.Format(e));
+                LogException(e, message);
+                ReportError(message);
             }
         }
     }

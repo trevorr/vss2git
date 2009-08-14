@@ -21,7 +21,7 @@ namespace Hpdi.VssPhysicalLib
     /// Exception thrown when the CRC stored in a record does not match the expected value.
     /// </summary>
     /// <author>Trevor Robinson</author>
-    public class RecordCrcException : Exception
+    public class RecordCrcException : RecordException
     {
         private RecordHeader header;
         public RecordHeader Header

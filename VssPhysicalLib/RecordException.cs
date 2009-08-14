@@ -18,17 +18,22 @@ using System;
 namespace Hpdi.VssPhysicalLib
 {
     /// <summary>
-    /// Exception thrown when a particular record cannot be found.
+    /// Base class for exceptions thrown when an invalid record is read.
     /// </summary>
     /// <author>Trevor Robinson</author>
-    public class RecordNotFoundException : RecordException
+    public class RecordException : Exception
     {
-        public RecordNotFoundException()
+        public RecordException()
         {
         }
 
-        public RecordNotFoundException(string message)
+        public RecordException(string message)
             : base(message)
+        {
+        }
+
+        public RecordException(string message, Exception innerException)
+            : base(message, innerException)
         {
         }
     }

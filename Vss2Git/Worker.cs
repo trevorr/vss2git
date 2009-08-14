@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+using System;
+using System.Windows.Forms;
+
 namespace Hpdi.Vss2Git
 {
     /// <summary>
@@ -34,6 +37,28 @@ namespace Hpdi.Vss2Git
         {
             workQueue.SetStatus(work, status);
             logger.WriteLine(status);
+        }
+
+        protected string LogException(Exception exception)
+        {
+            var message = ExceptionFormatter.Format(exception);
+            LogException(exception, message);
+            return message;
+        }
+
+        protected void LogException(Exception exception, string message)
+        {
+            logger.WriteLine("ERROR: {0}", message);
+            logger.WriteLine(exception);
+        }
+
+        protected void ReportError(string message)
+        {
+            var button = MessageBox.Show(message, "Error", MessageBoxButtons.OKCancel, MessageBoxIcon.Error);
+            if (button == DialogResult.Cancel)
+            {
+                workQueue.Abort();
+            }
         }
     }
 }

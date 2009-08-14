@@ -52,14 +52,17 @@ namespace Hpdi.Vss2Git
             get { return parentInfo; }
             set
             {
-                if (parentInfo != null)
+                if (parentInfo != value)
                 {
-                    parentInfo.RemoveItem(this);
-                }
-                parentInfo = value;
-                if (parentInfo != null)
-                {
-                    parentInfo.AddItem(this);
+                    if (parentInfo != null)
+                    {
+                        parentInfo.RemoveItem(this);
+                    }
+                    parentInfo = value;
+                    if (parentInfo != null)
+                    {
+                        parentInfo.AddItem(this);
+                    }
                 }
             }
         }
@@ -97,10 +100,9 @@ namespace Hpdi.Vss2Git
             get { return items; }
         }
 
-        public VssProjectInfo(string physicalName, VssProjectInfo parentInfo, string subpath)
+        public VssProjectInfo(string physicalName, string subpath)
             : base(physicalName)
         {
-            this.parentInfo = parentInfo;
             this.subpath = subpath;
         }
 
@@ -307,7 +309,7 @@ namespace Hpdi.Vss2Git
 
         public void SetProjectPath(string project, string path)
         {
-            var projectInfo = new VssProjectInfo(project, null, path);
+            var projectInfo = new VssProjectInfo(project, path);
             projectInfo.IsRoot = true;
             projectInfos[project] = projectInfo;
         }
@@ -377,19 +379,24 @@ namespace Hpdi.Vss2Git
 
         public VssItemInfo AddItem(VssItemName project, VssItemName name)
         {
-            var parentInfo = GetOrCreateProject(project, null);
+            var parentInfo = GetOrCreateProject(project);
             VssItemInfo itemInfo;
             if (name.IsProject)
             {
-                itemInfo = GetOrCreateProject(name, parentInfo);
+                var projectInfo = GetOrCreateProject(name);
+                projectInfo.Parent = parentInfo;
+                // update name of project in case it was created on demand by
+                // an earlier unmapped item that was subsequently renamed
+                projectInfo.Subpath = name.LogicalName;
+                itemInfo = projectInfo;
             }
             else
             {
                 var fileInfo = GetOrCreateFile(name);
                 fileInfo.AddProject(parentInfo);
+                parentInfo.AddItem(fileInfo);
                 itemInfo = fileInfo;
             }
-            parentInfo.AddItem(itemInfo);
             return itemInfo;
         }
 
@@ -398,7 +405,7 @@ namespace Hpdi.Vss2Git
             VssItemInfo itemInfo;
             if (name.IsProject)
             {
-                var projectInfo = GetOrCreateProject(name, null);
+                var projectInfo = GetOrCreateProject(name);
                 projectInfo.Subpath = name.LogicalName;
                 itemInfo = projectInfo;
             }
@@ -413,37 +420,41 @@ namespace Hpdi.Vss2Git
 
         public VssItemInfo DeleteItem(VssItemName project, VssItemName name)
         {
-            var parentInfo = GetOrCreateProject(project, null);
+            var parentInfo = GetOrCreateProject(project);
             VssItemInfo itemInfo;
             if (name.IsProject)
             {
-                itemInfo = GetOrCreateProject(name, null);
+                var projectInfo = GetOrCreateProject(name);
+                projectInfo.Parent = null;
+                itemInfo = projectInfo;
             }
             else
             {
                 var fileInfo = GetOrCreateFile(name);
                 fileInfo.RemoveProject(parentInfo);
+                parentInfo.RemoveItem(fileInfo);
                 itemInfo = fileInfo;
             }
-            parentInfo.RemoveItem(itemInfo);
             return itemInfo;
         }
 
         public VssItemInfo RecoverItem(VssItemName project, VssItemName name)
         {
-            var parentInfo = GetOrCreateProject(project, null);
+            var parentInfo = GetOrCreateProject(project);
             VssItemInfo itemInfo;
             if (name.IsProject)
             {
-                itemInfo = GetOrCreateProject(name, null);
+                var projectInfo = GetOrCreateProject(name);
+                projectInfo.Parent = parentInfo;
+                itemInfo = projectInfo;
             }
             else
             {
                 var fileInfo = GetOrCreateFile(name);
                 fileInfo.AddProject(parentInfo);
+                parentInfo.AddItem(fileInfo);
                 itemInfo = fileInfo;
             }
-            parentInfo.AddItem(itemInfo);
             return itemInfo;
         }
 
@@ -466,7 +477,7 @@ namespace Hpdi.Vss2Git
             Debug.Assert(!newName.IsProject);
             Debug.Assert(!oldName.IsProject);
 
-            var parentInfo = GetOrCreateProject(project, null);
+            var parentInfo = GetOrCreateProject(project);
             var oldFile = GetOrCreateFile(oldName);
             oldFile.RemoveProject(parentInfo);
             var newFile = GetOrCreateFile(newName);
@@ -479,8 +490,8 @@ namespace Hpdi.Vss2Git
         {
             Debug.Assert(subproject.IsProject);
 
-            var parentInfo = GetOrCreateProject(project, null);
-            var subprojectInfo = GetOrCreateProject(subproject, null);
+            var parentInfo = GetOrCreateProject(project);
+            var subprojectInfo = GetOrCreateProject(subproject);
             subprojectInfo.Parent = parentInfo;
             return subprojectInfo;
         }
@@ -490,12 +501,12 @@ namespace Hpdi.Vss2Git
             // currently ignored; rely on MoveProjectFrom
         }
 
-        private VssProjectInfo GetOrCreateProject(VssItemName name, VssProjectInfo parentInfo)
+        private VssProjectInfo GetOrCreateProject(VssItemName name)
         {
             VssProjectInfo projectInfo;
             if (!projectInfos.TryGetValue(name.PhysicalName, out projectInfo))
             {
-                projectInfo = new VssProjectInfo(name.PhysicalName, parentInfo, name.LogicalName);
+                projectInfo = new VssProjectInfo(name.PhysicalName, name.LogicalName);
                 projectInfos[name.PhysicalName] = projectInfo;
             }
             return projectInfo;

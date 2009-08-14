@@ -50,6 +50,8 @@ namespace Hpdi.Vss2Git
             {
                 OpenLog(logTextBox.Text);
 
+                logger.WriteLine("VSS2Git version {0}", Assembly.GetExecutingAssembly().GetName().Version);
+
                 WriteSettings();
 
                 Encoding encoding = Encoding.Default;
@@ -175,9 +177,11 @@ namespace Hpdi.Vss2Git
         private void ShowException(Exception exception)
         {
             var message = ExceptionFormatter.Format(exception);
+            logger.WriteLine("ERROR: {0}", message);
+            logger.WriteLine(exception);
+
             MessageBox.Show(message, "Unhandled Exception",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
-            logger.WriteLine(exception);
         }
 
         private void MainForm_Load(object sender, EventArgs e)

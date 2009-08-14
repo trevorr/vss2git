@@ -202,16 +202,10 @@ namespace Hpdi.Vss2Git
 
             using (commentFile)
             {
-                // convert local time to UTC based on whether DST was in effect at the time
-                var utcTime = TimeZoneInfo.ConvertTimeToUtc(localTime);
-
-                // format time according to RFC 2822
-                var utcTimeStr = utcTime.ToString("ddd MMM dd HH':'mm':'ss yyyy +0000");
-
                 var startInfo = GetStartInfo(args);
                 startInfo.EnvironmentVariables["GIT_AUTHOR_NAME"] = authorName;
                 startInfo.EnvironmentVariables["GIT_AUTHOR_EMAIL"] = authorEmail;
-                startInfo.EnvironmentVariables["GIT_AUTHOR_DATE"] = utcTimeStr;
+                startInfo.EnvironmentVariables["GIT_AUTHOR_DATE"] = GetUtcTimeString(localTime);
 
                 // ignore empty commits, since they are non-trivial to detect
                 // (e.g. when renaming a directory)
@@ -219,7 +213,7 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        public void Tag(string name, string comment)
+        public void Tag(string name, string taggerName, string taggerEmail, string comment, DateTime localTime)
         {
             TempFile commentFile;
 
@@ -231,8 +225,22 @@ namespace Hpdi.Vss2Git
 
             using (commentFile)
             {
-                GitExec(args);
+                var startInfo = GetStartInfo(args);
+                startInfo.EnvironmentVariables["GIT_COMMITTER_NAME"] = taggerName;
+                startInfo.EnvironmentVariables["GIT_COMMITTER_EMAIL"] = taggerEmail;
+                startInfo.EnvironmentVariables["GIT_COMMITTER_DATE"] = GetUtcTimeString(localTime);
+
+                ExecuteUnless(startInfo, null);
             }
+        }
+
+        private static string GetUtcTimeString(DateTime localTime)
+        {
+            // convert local time to UTC based on whether DST was in effect at the time
+            var utcTime = TimeZoneInfo.ConvertTimeToUtc(localTime);
+
+            // format time according to RFC 2822
+            return utcTime.ToString("ddd MMM dd HH':'mm':'ss yyyy +0000");
         }
 
         private void GitExec(string args)
