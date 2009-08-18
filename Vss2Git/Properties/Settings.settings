@@ -1,5 +1,5 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
-<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Vss2Git.Properties" GeneratedClassName="Settings">
+<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Hpdi.Vss2Git.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
     <Setting Name="VssDirectory" Type="System.String" Scope="User">
@@ -19,6 +19,9 @@
     </Setting>
     <Setting Name="LogFile" Type="System.String" Scope="User">
       <Value Profile="(Default)">Vss2Git.log</Value>
+    </Setting>
+    <Setting Name="TranscodeComments" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="AnyCommentSeconds" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">30</Value>

@@ -97,6 +97,18 @@ namespace Hpdi.Vss2Git.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool TranscodeComments {
+            get {
+                return ((bool)(this["TranscodeComments"]));
+            }
+            set {
+                this["TranscodeComments"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("30")]
         public int AnyCommentSeconds {
             get {

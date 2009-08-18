@@ -469,20 +469,24 @@ namespace Hpdi.Vss2Git
                         // write current rev of all contained files
                         foreach (var fileInfo in pathMapper.GetAllFiles(target.PhysicalName))
                         {
-                            WriteRevision(pathMapper, actionType, fileInfo.PhysicalName,
-                                fileInfo.Version, target.PhysicalName, git);
-                            needCommit = true;
+                            if (WriteRevision(pathMapper, actionType, fileInfo.PhysicalName,
+                                fileInfo.Version, target.PhysicalName, git))
+                            {
+                                // one or more files were written
+                                needCommit = true;
+                            }
                         }
                     }
                     else if (writeFile)
                     {
                         // write current rev to working path
                         int version = pathMapper.GetFileVersion(target.PhysicalName);
-                        WriteRevisionTo(target.PhysicalName, version, targetPath);
-
-                        // add file explicitly, so it is visible to subsequent git operations
-                        git.Add(targetPath);
-                        needCommit = true;
+                        if (WriteRevisionTo(target.PhysicalName, version, targetPath))
+                        {
+                            // add file explicitly, so it is visible to subsequent git operations
+                            git.Add(targetPath);
+                            needCommit = true;
+                        }
                     }
                 }
             }
@@ -582,27 +586,31 @@ namespace Hpdi.Vss2Git
             return tag;
         }
 
-        private void WriteRevision(VssPathMapper pathMapper, VssActionType actionType,
+        private bool WriteRevision(VssPathMapper pathMapper, VssActionType actionType,
             string physicalName, int version, string underProject, GitWrapper git)
         {
+            var needCommit = false;
             var paths = pathMapper.GetFilePaths(physicalName, underProject);
             foreach (string path in paths)
             {
                 logger.WriteLine("{0}: {1} revision {2}", path, actionType, version);
-                WriteRevisionTo(physicalName, version, path);
-
-                // add file explicitly, so it is visible to subsequent git operations
-                git.Add(path);
+                if (WriteRevisionTo(physicalName, version, path))
+                {
+                    // add file explicitly, so it is visible to subsequent git operations
+                    git.Add(path);
+                    needCommit = true;
+                }
             }
+            return needCommit;
         }
 
-        private void WriteRevisionTo(string physical, int version, string destPath)
+        private bool WriteRevisionTo(string physical, int version, string destPath)
         {
             // check for destroyed files
             if (revisionAnalyzer.IsDestroyed(physical) && !database.ItemExists(physical))
             {
                 logger.WriteLine("NOTE: Skipping destroyed file: {0}", destPath);
-                return;
+                return false;
             }
 
             VssFile item;
@@ -620,7 +628,7 @@ namespace Hpdi.Vss2Git
                 var message = ExceptionFormatter.Format(e);
                 logger.WriteLine("ERROR: {0}", message);
                 logger.WriteLine(e);
-                return;
+                return false;
             }
 
             // propagate exceptions here (e.g. disk full) to abort/retry/ignore
@@ -643,6 +651,8 @@ namespace Hpdi.Vss2Git
             // set file creation and update timestamps
             File.SetCreationTimeUtc(destPath, TimeZoneInfo.ConvertTimeToUtc(createDateTime));
             File.SetLastWriteTimeUtc(destPath, TimeZoneInfo.ConvertTimeToUtc(revision.DateTime));
+
+            return true;
         }
 
         private void WriteStream(Stream inputStream, string path)

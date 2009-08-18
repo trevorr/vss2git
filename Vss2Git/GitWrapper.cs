@@ -34,6 +34,7 @@ namespace Hpdi.Vss2Git
         private readonly Stopwatch stopwatch = new Stopwatch();
         private string gitExecutable = "git.exe";
         private string gitInitialArguments = null;
+        private bool shellQuoting = false;
         private Encoding commitEncoding = Encoding.UTF8;
 
         public TimeSpan ElapsedTime
@@ -51,6 +52,12 @@ namespace Hpdi.Vss2Git
         {
             get { return gitInitialArguments; }
             set { gitInitialArguments = value; }
+        }
+
+        public bool ShellQuoting
+        {
+            get { return shellQuoting; }
+            set { shellQuoting = value; }
         }
 
         public Encoding CommitEncoding
@@ -72,12 +79,14 @@ namespace Hpdi.Vss2Git
             {
                 gitExecutable = foundPath;
                 gitInitialArguments = null;
+                shellQuoting = false;
                 return true;
             }
             if (FindInPathVar("git.cmd", out foundPath))
             {
                 gitExecutable = "cmd.exe";
                 gitInitialArguments = "/c git";
+                shellQuoting = true;
                 return true;
             }
             return false;
@@ -176,8 +185,8 @@ namespace Hpdi.Vss2Git
             if (!string.IsNullOrEmpty(comment))
             {
                 // need to use a temporary file to specify the comment when not
-                // using the system default code page
-                if (commitEncoding.CodePage != Encoding.Default.CodePage)
+                // using the system default code page or it contains newlines
+                if (commitEncoding.CodePage != Encoding.Default.CodePage || comment.IndexOf('\n') >= 0)
                 {
                     logger.WriteLine("Generating temp file for comment: {0}", comment);
                     tempFile = new TempFile();
@@ -423,7 +432,7 @@ namespace Hpdi.Vss2Git
         /// <param name="arg">A command-line argument to quote.</param>
         /// <returns>The given argument, possibly in quotes, with internal
         /// quotes escaped with backslashes.</returns>
-        private static string Quote(string arg)
+        private string Quote(string arg)
         {
             if (string.IsNullOrEmpty(arg))
             {
@@ -434,7 +443,7 @@ namespace Hpdi.Vss2Git
             for (int i = 0; i < arg.Length; ++i)
             {
                 char c = arg[i];
-                if (buf == null && (char.IsWhiteSpace(c) || c == QuoteChar))
+                if (buf == null && NeedsQuoting(c))
                 {
                     buf = new StringBuilder(arg.Length + 2);
                     buf.Append(QuoteChar);
@@ -455,6 +464,12 @@ namespace Hpdi.Vss2Git
                 return buf.ToString();
             }
             return arg;
+        }
+
+        private bool NeedsQuoting(char c)
+        {
+            return char.IsWhiteSpace(c) || c == QuoteChar ||
+                (shellQuoting && (c == '&' || c == '|' || c == '<' || c == '>' || c == '^' || c == '%'));
         }
     }
 }

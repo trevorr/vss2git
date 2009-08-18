@@ -226,6 +226,7 @@ namespace Hpdi.Vss2Git
             outDirTextBox.Text = settings.GitDirectory;
             domainTextBox.Text = settings.DefaultEmailDomain;
             logTextBox.Text = settings.LogFile;
+            transcodeCheckBox.Checked = settings.TranscodeComments;
             anyCommentUpDown.Value = settings.AnyCommentSeconds;
             sameCommentUpDown.Value = settings.SameCommentSeconds;
         }
@@ -239,6 +240,7 @@ namespace Hpdi.Vss2Git
             settings.GitDirectory = outDirTextBox.Text;
             settings.DefaultEmailDomain = domainTextBox.Text;
             settings.LogFile = logTextBox.Text;
+            settings.TranscodeComments = transcodeCheckBox.Checked;
             settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
             settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
             settings.Save();
