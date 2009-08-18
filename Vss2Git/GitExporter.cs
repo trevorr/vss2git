@@ -113,7 +113,7 @@ namespace Hpdi.Vss2Git
                 foreach (var rootProject in revisionAnalyzer.RootProjects)
                 {
                     var rootPath = VssPathMapper.GetWorkingPath(repoPath, rootProject.Path);
-                    pathMapper.SetProjectPath(rootProject.PhysicalName, rootPath);
+                    pathMapper.SetProjectPath(rootProject.PhysicalName, rootPath, rootProject.Path);
                 }
 
                 // replay each changeset
@@ -269,6 +269,7 @@ namespace Hpdi.Vss2Git
                 bool isAddAction = false;
                 bool writeProject = false;
                 bool writeFile = false;
+                VssItemInfo itemInfo = null;
                 switch (actionType)
                 {
                     case VssActionType.Label:
@@ -283,13 +284,13 @@ namespace Hpdi.Vss2Git
                     case VssActionType.Add:
                     case VssActionType.Share:
                         logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
-                        pathMapper.AddItem(project, target);
+                        itemInfo = pathMapper.AddItem(project, target);
                         isAddAction = true;
                         break;
 
                     case VssActionType.Recover:
                         logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
-                        pathMapper.RecoverItem(project, target);
+                        itemInfo = pathMapper.RecoverItem(project, target);
                         isAddAction = true;
                         break;
 
@@ -297,8 +298,8 @@ namespace Hpdi.Vss2Git
                     case VssActionType.Destroy:
                         {
                             logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
-                            var itemInfo = pathMapper.DeleteItem(project, target);
-                            if (targetPath != null)
+                            itemInfo = pathMapper.DeleteItem(project, target);
+                            if (targetPath != null && !itemInfo.Destroyed)
                             {
                                 if (target.IsProject)
                                 {
@@ -333,8 +334,8 @@ namespace Hpdi.Vss2Git
                             var renameAction = (VssRenameAction)revision.Action;
                             logger.WriteLine("{0}: {1} {2} to {3}",
                                 projectDesc, actionType, renameAction.OriginalName, target.LogicalName);
-                            var itemInfo = pathMapper.RenameItem(target);
-                            if (targetPath != null)
+                            itemInfo = pathMapper.RenameItem(target);
+                            if (targetPath != null && !itemInfo.Destroyed)
                             {
                                 var sourcePath = Path.Combine(projectPath, renameAction.OriginalName);
                                 var projectInfo = itemInfo as VssProjectInfo;
@@ -358,14 +359,14 @@ namespace Hpdi.Vss2Git
                         // can succeed, so check that the source exists
                         {
                             var moveFromAction = (VssMoveFromAction)revision.Action;
-                            logger.WriteLine("{0}: Move {1} to {2}",
-                                projectDesc, moveFromAction.OriginalProject, target.LogicalName);
+                            logger.WriteLine("{0}: Move from {1} to {2}",
+                                projectDesc, moveFromAction.OriginalProject, targetPath ?? target.LogicalName);
                             var sourcePath = pathMapper.GetProjectPath(target.PhysicalName);
                             var projectInfo = pathMapper.MoveProjectFrom(
                                 project, target, moveFromAction.OriginalProject);
-                            if (sourcePath != null)
+                            if (targetPath != null && !projectInfo.Destroyed)
                             {
-                                if (targetPath != null && Directory.Exists(sourcePath))
+                                if (sourcePath != null && Directory.Exists(sourcePath))
                                 {
                                     if (projectInfo.ContainsFiles())
                                     {
@@ -378,21 +379,28 @@ namespace Hpdi.Vss2Git
                                         Directory.Move(sourcePath, targetPath);
                                     }
                                 }
-                            }
-                            else
-                            {
-                                // project was moved from a now-destroyed project
-                                writeProject = true;
+                                else
+                                {
+                                    // project was moved from a now-destroyed project
+                                    writeProject = true;
+                                }
                             }
                         }
                         break;
 
                     case VssActionType.MoveTo:
-                        // currently ignored; rely on MoveFrom
                         {
+                            // handle actual moves in MoveFrom; this just does cleanup of destroyed projects
                             var moveToAction = (VssMoveToAction)revision.Action;
-                            logger.WriteLine("{0}: Move {1} to {2} (ignored)",
-                                projectDesc, target.LogicalName, moveToAction.NewProject);
+                            logger.WriteLine("{0}: Move to {1} from {2}",
+                                projectDesc, moveToAction.NewProject, targetPath ?? target.LogicalName);
+                            var projectInfo = pathMapper.MoveProjectTo(
+                                project, target, moveToAction.NewProject);
+                            if (projectInfo.Destroyed && targetPath != null && Directory.Exists(targetPath))
+                            {
+                                // project was moved to a now-destroyed project; remove empty directory
+                                Directory.Delete(targetPath, true);
+                            }
                         }
                         break;
 
@@ -402,13 +410,13 @@ namespace Hpdi.Vss2Git
                             if (pinAction.Pinned)
                             {
                                 logger.WriteLine("{0}: Pin {1}", projectDesc, target.LogicalName);
-                                pathMapper.PinItem(project, target);
+                                itemInfo = pathMapper.PinItem(project, target);
                             }
                             else
                             {
                                 logger.WriteLine("{0}: Unpin {1}", projectDesc, target.LogicalName);
-                                pathMapper.UnpinItem(project, target);
-                                writeFile = true;
+                                itemInfo = pathMapper.UnpinItem(project, target);
+                                writeFile = !itemInfo.Destroyed;
                             }
                         }
                         break;
@@ -417,7 +425,7 @@ namespace Hpdi.Vss2Git
                         {
                             var branchAction = (VssBranchAction)revision.Action;
                             logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
-                            pathMapper.BranchFile(project, target, branchAction.Source);
+                            itemInfo = pathMapper.BranchFile(project, target, branchAction.Source);
                         }
                         break;
 
@@ -435,7 +443,7 @@ namespace Hpdi.Vss2Git
                             var restoreAction = (VssRestoreAction)revision.Action;
                             logger.WriteLine("{0}: Restore {1} from archive {2}",
                                 projectDesc, target.LogicalName, restoreAction.ArchivePath);
-                            pathMapper.AddItem(project, target);
+                            itemInfo = pathMapper.AddItem(project, target);
                             isAddAction = true;
                         }
                         break;
@@ -445,7 +453,13 @@ namespace Hpdi.Vss2Git
                 {
                     if (isAddAction)
                     {
-                        if (target.IsProject)
+                        if (revisionAnalyzer.IsDestroyed(target.PhysicalName) &&
+                            !database.ItemExists(target.PhysicalName))
+                        {
+                            logger.WriteLine("NOTE: Skipping destroyed file: {0}", targetPath);
+                            itemInfo.Destroyed = true;
+                        }
+                        else if (target.IsProject)
                         {
                             Directory.CreateDirectory(targetPath);
                             writeProject = true;
@@ -462,7 +476,7 @@ namespace Hpdi.Vss2Git
                         foreach (var projectInfo in pathMapper.GetAllProjects(target.PhysicalName))
                         {
                             logger.WriteLine("{0}: Creating subdirectory {1}",
-                                projectDesc, projectInfo.Subpath);
+                                projectDesc, projectInfo.LogicalName);
                             Directory.CreateDirectory(projectInfo.GetPath());
                         }
 
@@ -606,13 +620,6 @@ namespace Hpdi.Vss2Git
 
         private bool WriteRevisionTo(string physical, int version, string destPath)
         {
-            // check for destroyed files
-            if (revisionAnalyzer.IsDestroyed(physical) && !database.ItemExists(physical))
-            {
-                logger.WriteLine("NOTE: Skipping destroyed file: {0}", destPath);
-                return false;
-            }
-
             VssFile item;
             VssFileRevision revision;
             Stream contents;

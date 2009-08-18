@@ -34,9 +34,24 @@ namespace Hpdi.Vss2Git
             get { return physicalName; }
         }
 
-        public VssItemInfo(string physicalName)
+        private string logicalName;
+        public string LogicalName
+        {
+            get { return logicalName; }
+            set { logicalName = value; }
+        }
+
+        private bool destroyed;
+        public bool Destroyed
+        {
+            get { return destroyed; }
+            set { destroyed = value; }
+        }
+
+        public VssItemInfo(string physicalName, string logicalName)
         {
             this.physicalName = physicalName;
+            this.logicalName = logicalName;
         }
     }
 
@@ -74,6 +89,14 @@ namespace Hpdi.Vss2Git
             set { isRoot = value; }
         }
 
+        // valid only for root paths; used to resolve project specifiers
+        private string originalVssPath;
+        public string OriginalVssPath
+        {
+            get { return originalVssPath; }
+            set { originalVssPath = value; }
+        }
+
         public bool IsRooted
         {
             get
@@ -87,23 +110,15 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        private string subpath;
-        public string Subpath
-        {
-            get { return subpath; }
-            set { subpath = value; }
-        }
-
         private readonly LinkedList<VssItemInfo> items = new LinkedList<VssItemInfo>();
         public IEnumerable<VssItemInfo> Items
         {
             get { return items; }
         }
 
-        public VssProjectInfo(string physicalName, string subpath)
-            : base(physicalName)
+        public VssProjectInfo(string physicalName, string logicalName)
+            : base(physicalName, logicalName)
         {
-            this.subpath = subpath;
         }
 
         public string GetPath()
@@ -112,11 +127,11 @@ namespace Hpdi.Vss2Git
             {
                 if (parentInfo != null)
                 {
-                    return Path.Combine(parentInfo.GetPath(), subpath);
+                    return Path.Combine(parentInfo.GetPath(), LogicalName);
                 }
                 else
                 {
-                    return subpath;
+                    return LogicalName;
                 }
             }
             return null;
@@ -247,13 +262,6 @@ namespace Hpdi.Vss2Git
             get { return projects; }
         }
 
-        private string logicalName;
-        public string LogicalName
-        {
-            get { return logicalName; }
-            set { logicalName = value; }
-        }
-
         private int version = 1;
         public int Version
         {
@@ -262,9 +270,8 @@ namespace Hpdi.Vss2Git
         }
 
         public VssFileInfo(string physicalName, string logicalName)
-            : base(physicalName)
+            : base(physicalName, logicalName)
         {
-            this.logicalName = logicalName;
         }
 
         public void AddProject(VssProjectInfo project)
@@ -284,7 +291,9 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     class VssPathMapper
     {
+        // keyed by physical name
         private readonly Dictionary<string, VssProjectInfo> projectInfos = new Dictionary<string, VssProjectInfo>();
+        private readonly Dictionary<string, VssProjectInfo> rootInfos = new Dictionary<string, VssProjectInfo>();
         private readonly Dictionary<string, VssFileInfo> fileInfos = new Dictionary<string, VssFileInfo>();
 
         public bool IsProjectRooted(string project)
@@ -307,11 +316,13 @@ namespace Hpdi.Vss2Git
             return null;
         }
 
-        public void SetProjectPath(string project, string path)
+        public void SetProjectPath(string project, string path, string originalVssPath)
         {
             var projectInfo = new VssProjectInfo(project, path);
             projectInfo.IsRoot = true;
+            projectInfo.OriginalVssPath = originalVssPath;
             projectInfos[project] = projectInfo;
+            rootInfos[project] = projectInfo;
         }
 
         public IEnumerable<VssFileInfo> GetAllFiles(string project)
@@ -387,7 +398,7 @@ namespace Hpdi.Vss2Git
                 projectInfo.Parent = parentInfo;
                 // update name of project in case it was created on demand by
                 // an earlier unmapped item that was subsequently renamed
-                projectInfo.Subpath = name.LogicalName;
+                projectInfo.LogicalName = name.LogicalName;
                 itemInfo = projectInfo;
             }
             else
@@ -405,16 +416,13 @@ namespace Hpdi.Vss2Git
             VssItemInfo itemInfo;
             if (name.IsProject)
             {
-                var projectInfo = GetOrCreateProject(name);
-                projectInfo.Subpath = name.LogicalName;
-                itemInfo = projectInfo;
+                itemInfo = GetOrCreateProject(name);
             }
             else
             {
-                var fileInfo = GetOrCreateFile(name);
-                fileInfo.LogicalName = name.LogicalName;
-                itemInfo = fileInfo;
+                itemInfo = GetOrCreateFile(name);
             }
+            itemInfo.LogicalName = name.LogicalName;
             return itemInfo;
         }
 
@@ -496,9 +504,28 @@ namespace Hpdi.Vss2Git
             return subprojectInfo;
         }
 
-        public void MoveProjectTo(string project, VssItemName subproject, string newProjectSpec)
+        public VssProjectInfo MoveProjectTo(VssItemName project, VssItemName subproject, string newProjectSpec)
         {
-            // currently ignored; rely on MoveProjectFrom
+            var subprojectInfo = GetOrCreateProject(subproject);
+            var lastSlash = newProjectSpec.LastIndexOf('/');
+            if (lastSlash > 0)
+            {
+                var newParentSpec = newProjectSpec.Substring(0, lastSlash);
+                var parentInfo = ResolveProjectSpec(newParentSpec);
+                if (parentInfo != null)
+                {
+                    // propagate the destroyed flag from the new parent
+                    subprojectInfo.Parent = parentInfo;
+                    subprojectInfo.Destroyed |= parentInfo.Destroyed;
+                }
+                else
+                {
+                    // if resolution fails, the target project has been destroyed
+                    // or is outside the set of projects being mapped
+                    subprojectInfo.Destroyed = true;
+                }
+            }
+            return subprojectInfo;
         }
 
         private VssProjectInfo GetOrCreateProject(VssItemName name)
@@ -530,8 +557,42 @@ namespace Hpdi.Vss2Git
                 throw new ArgumentException("Project spec must start with $/", "projectSpec");
             }
 
-            // TODO
-            throw new NotImplementedException();
+            foreach (var rootInfo in rootInfos.Values)
+            {
+                if (projectSpec.StartsWith(rootInfo.OriginalVssPath))
+                {
+                    var rootLength = rootInfo.OriginalVssPath.Length;
+                    if (!rootInfo.OriginalVssPath.EndsWith("/"))
+                    {
+                        ++rootLength;
+                    }
+                    var subpath = projectSpec.Substring(rootLength);
+                    var subprojectNames = subpath.Split('/');
+                    var projectInfo = rootInfo;
+                    foreach (var subprojectName in subprojectNames)
+                    {
+                        var found = false;
+                        foreach (var item in projectInfo.Items)
+                        {
+                            var subprojectInfo = item as VssProjectInfo;
+                            if (subprojectInfo != null && subprojectInfo.LogicalName == subprojectName)
+                            {
+                                projectInfo = subprojectInfo;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                        {
+                            goto NotFound;
+                        }
+                    }
+                    return projectInfo;
+                }
+            }
+
+        NotFound:
+            return null;
         }
 
         public static string GetWorkingPath(string workingRoot, string vssPath)
@@ -540,10 +601,12 @@ namespace Hpdi.Vss2Git
             {
                 return workingRoot;
             }
+
             if (vssPath.StartsWith("$/"))
             {
                 vssPath = vssPath.Substring(2);
             }
+
             var relPath = vssPath.Replace(VssDatabase.ProjectSeparatorChar, Path.DirectorySeparatorChar);
             return Path.Combine(workingRoot, relPath);
         }
