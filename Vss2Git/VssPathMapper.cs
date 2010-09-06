@@ -161,6 +161,18 @@ namespace Hpdi.Vss2Git
             items.Remove(item);
         }
 
+        public bool ContainsLogicalName(string logicalName)
+        {
+            foreach (var item in items)
+            {
+                if (item.LogicalName.Equals(logicalName))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public bool ContainsFiles()
         {
             var subprojects = new LinkedList<VssProjectInfo>();
@@ -396,9 +408,6 @@ namespace Hpdi.Vss2Git
             {
                 var projectInfo = GetOrCreateProject(name);
                 projectInfo.Parent = parentInfo;
-                // update name of project in case it was created on demand by
-                // an earlier unmapped item that was subsequently renamed
-                projectInfo.LogicalName = name.LogicalName;
                 itemInfo = projectInfo;
             }
             else
@@ -408,6 +417,11 @@ namespace Hpdi.Vss2Git
                 parentInfo.AddItem(fileInfo);
                 itemInfo = fileInfo;
             }
+
+            // update name of item in case it was created on demand by
+            // an earlier unmapped item that was subsequently renamed
+            itemInfo.LogicalName = name.LogicalName;
+
             return itemInfo;
         }
 
@@ -485,12 +499,23 @@ namespace Hpdi.Vss2Git
             Debug.Assert(!newName.IsProject);
             Debug.Assert(!oldName.IsProject);
 
+            // "branching a file" (in VSS parlance) essentially moves it from
+            // one project to another (and could potentially change its name)
             var parentInfo = GetOrCreateProject(project);
+
+            // remove filename from old project
             var oldFile = GetOrCreateFile(oldName);
             oldFile.RemoveProject(parentInfo);
+            parentInfo.RemoveItem(oldFile);
+
+            // add filename to new project
             var newFile = GetOrCreateFile(newName);
             newFile.AddProject(parentInfo);
+            parentInfo.AddItem(newFile);
+
+            // retain version number from old file
             newFile.Version = oldFile.Version;
+
             return newFile;
         }
 
@@ -526,6 +551,12 @@ namespace Hpdi.Vss2Git
                 }
             }
             return subprojectInfo;
+        }
+
+        public bool ProjectContainsLogicalName(VssItemName project, VssItemName name)
+        {
+            var parentInfo = GetOrCreateProject(project);
+            return parentInfo.ContainsLogicalName(name.LogicalName);
         }
 
         private VssProjectInfo GetOrCreateProject(VssItemName name)

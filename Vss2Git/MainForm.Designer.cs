@@ -31,6 +31,8 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.vssGroupBox = new System.Windows.Forms.GroupBox();
+            this.encodingLabel = new System.Windows.Forms.Label();
+            this.encodingComboBox = new System.Windows.Forms.ComboBox();
             this.excludeTextBox = new System.Windows.Forms.TextBox();
             this.excludeLabel = new System.Windows.Forms.Label();
             this.vssProjectTextBox = new System.Windows.Forms.TextBox();
@@ -46,6 +48,8 @@
             this.changeLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.timeLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.outputGroupBox = new System.Windows.Forms.GroupBox();
+            this.forceAnnotatedCheckBox = new System.Windows.Forms.CheckBox();
+            this.transcodeCheckBox = new System.Windows.Forms.CheckBox();
             this.domainTextBox = new System.Windows.Forms.TextBox();
             this.domainLabel = new System.Windows.Forms.Label();
             this.outDirTextBox = new System.Windows.Forms.TextBox();
@@ -60,9 +64,6 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.anyCommentUpDown = new System.Windows.Forms.NumericUpDown();
-            this.encodingComboBox = new System.Windows.Forms.ComboBox();
-            this.encodingLabel = new System.Windows.Forms.Label();
-            this.transcodeCheckBox = new System.Windows.Forms.CheckBox();
             this.vssGroupBox.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.outputGroupBox.SuspendLayout();
@@ -89,6 +90,26 @@
             this.vssGroupBox.TabIndex = 0;
             this.vssGroupBox.TabStop = false;
             this.vssGroupBox.Text = "VSS Settings";
+            // 
+            // encodingLabel
+            // 
+            this.encodingLabel.AutoSize = true;
+            this.encodingLabel.Location = new System.Drawing.Point(6, 100);
+            this.encodingLabel.Name = "encodingLabel";
+            this.encodingLabel.Size = new System.Drawing.Size(52, 13);
+            this.encodingLabel.TabIndex = 6;
+            this.encodingLabel.Text = "Encoding";
+            // 
+            // encodingComboBox
+            // 
+            this.encodingComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.encodingComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.encodingComboBox.FormattingEnabled = true;
+            this.encodingComboBox.Location = new System.Drawing.Point(81, 97);
+            this.encodingComboBox.Name = "encodingComboBox";
+            this.encodingComboBox.Size = new System.Drawing.Size(473, 21);
+            this.encodingComboBox.TabIndex = 7;
             // 
             // excludeTextBox
             // 
@@ -176,7 +197,7 @@
             // statusLabel
             // 
             this.statusLabel.Name = "statusLabel";
-            this.statusLabel.Size = new System.Drawing.Size(253, 17);
+            this.statusLabel.Size = new System.Drawing.Size(284, 17);
             this.statusLabel.Spring = true;
             this.statusLabel.Text = "Idle";
             this.statusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -209,6 +230,7 @@
             // 
             this.outputGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
+            this.outputGroupBox.Controls.Add(this.forceAnnotatedCheckBox);
             this.outputGroupBox.Controls.Add(this.transcodeCheckBox);
             this.outputGroupBox.Controls.Add(this.domainTextBox);
             this.outputGroupBox.Controls.Add(this.domainLabel);
@@ -222,6 +244,30 @@
             this.outputGroupBox.TabIndex = 1;
             this.outputGroupBox.TabStop = false;
             this.outputGroupBox.Text = "Output Settings";
+            // 
+            // forceAnnotatedCheckBox
+            // 
+            this.forceAnnotatedCheckBox.AutoSize = true;
+            this.forceAnnotatedCheckBox.Checked = true;
+            this.forceAnnotatedCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.forceAnnotatedCheckBox.Location = new System.Drawing.Point(224, 97);
+            this.forceAnnotatedCheckBox.Name = "forceAnnotatedCheckBox";
+            this.forceAnnotatedCheckBox.Size = new System.Drawing.Size(191, 17);
+            this.forceAnnotatedCheckBox.TabIndex = 7;
+            this.forceAnnotatedCheckBox.Text = "Force use of annotated tag objects";
+            this.forceAnnotatedCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // transcodeCheckBox
+            // 
+            this.transcodeCheckBox.AutoSize = true;
+            this.transcodeCheckBox.Checked = true;
+            this.transcodeCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.transcodeCheckBox.Location = new System.Drawing.Point(9, 97);
+            this.transcodeCheckBox.Name = "transcodeCheckBox";
+            this.transcodeCheckBox.Size = new System.Drawing.Size(209, 17);
+            this.transcodeCheckBox.TabIndex = 6;
+            this.transcodeCheckBox.Text = "Transcode commit comments to UTF-8";
+            this.transcodeCheckBox.UseVisualStyleBackColor = true;
             // 
             // domainTextBox
             // 
@@ -364,38 +410,6 @@
             this.anyCommentUpDown.Size = new System.Drawing.Size(54, 20);
             this.anyCommentUpDown.TabIndex = 1;
             // 
-            // encodingComboBox
-            // 
-            this.encodingComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
-            this.encodingComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.encodingComboBox.FormattingEnabled = true;
-            this.encodingComboBox.Location = new System.Drawing.Point(81, 97);
-            this.encodingComboBox.Name = "encodingComboBox";
-            this.encodingComboBox.Size = new System.Drawing.Size(473, 21);
-            this.encodingComboBox.TabIndex = 7;
-            // 
-            // encodingLabel
-            // 
-            this.encodingLabel.AutoSize = true;
-            this.encodingLabel.Location = new System.Drawing.Point(6, 100);
-            this.encodingLabel.Name = "encodingLabel";
-            this.encodingLabel.Size = new System.Drawing.Size(52, 13);
-            this.encodingLabel.TabIndex = 6;
-            this.encodingLabel.Text = "Encoding";
-            // 
-            // transcodeCheckBox
-            // 
-            this.transcodeCheckBox.AutoSize = true;
-            this.transcodeCheckBox.Checked = true;
-            this.transcodeCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.transcodeCheckBox.Location = new System.Drawing.Point(9, 97);
-            this.transcodeCheckBox.Name = "transcodeCheckBox";
-            this.transcodeCheckBox.Size = new System.Drawing.Size(209, 17);
-            this.transcodeCheckBox.TabIndex = 6;
-            this.transcodeCheckBox.Text = "Transcode commit comments to UTF-8";
-            this.transcodeCheckBox.UseVisualStyleBackColor = true;
-            // 
             // MainForm
             // 
             this.AcceptButton = this.goButton;
@@ -410,7 +424,7 @@
             this.Controls.Add(this.vssGroupBox);
             this.Controls.Add(this.statusStrip);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.MinimumSize = new System.Drawing.Size(450, 419);
+            this.MinimumSize = new System.Drawing.Size(458, 419);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "VSS2Git";
@@ -466,6 +480,7 @@
         private System.Windows.Forms.Label encodingLabel;
         private System.Windows.Forms.ComboBox encodingComboBox;
         private System.Windows.Forms.CheckBox transcodeCheckBox;
+        private System.Windows.Forms.CheckBox forceAnnotatedCheckBox;
 
     }
 }

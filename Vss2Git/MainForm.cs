@@ -227,6 +227,7 @@ namespace Hpdi.Vss2Git
             domainTextBox.Text = settings.DefaultEmailDomain;
             logTextBox.Text = settings.LogFile;
             transcodeCheckBox.Checked = settings.TranscodeComments;
+            forceAnnotatedCheckBox.Checked = settings.ForceAnnotatedTags;
             anyCommentUpDown.Value = settings.AnyCommentSeconds;
             sameCommentUpDown.Value = settings.SameCommentSeconds;
         }
@@ -241,6 +242,7 @@ namespace Hpdi.Vss2Git
             settings.DefaultEmailDomain = domainTextBox.Text;
             settings.LogFile = logTextBox.Text;
             settings.TranscodeComments = transcodeCheckBox.Checked;
+            settings.ForceAnnotatedTags = forceAnnotatedCheckBox.Checked;
             settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
             settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
             settings.Save();

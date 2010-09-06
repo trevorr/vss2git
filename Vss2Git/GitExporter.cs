@@ -54,6 +54,13 @@ namespace Hpdi.Vss2Git
             set { commitEncoding = value; }
         }
 
+        private bool forceAnnotatedTags = true;
+        public bool ForceAnnotatedTags
+        {
+            get { return forceAnnotatedTags; }
+            set { forceAnnotatedTags = value; }
+        }
+
         public GitExporter(WorkQueue workQueue, Logger logger,
             RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder)
             : base(workQueue, logger)
@@ -188,11 +195,20 @@ namespace Hpdi.Vss2Git
                                 }
                                 LogStatus(work, tagMessage);
 
+                                // annotated tags require (and are implied by) a tag message;
+                                // tools like Mercurial's git converter only import annotated tags
+                                var tagComment = label.Comment;
+                                if (string.IsNullOrEmpty(tagComment) && forceAnnotatedTags)
+                                {
+                                    // use the original VSS label as the tag message if none was provided
+                                    tagComment = labelName;
+                                }
+
                                 if (AbortRetryIgnore(
                                     delegate
                                     {
                                         git.Tag(tagName, label.User, GetEmail(label.User),
-                                            label.Comment, label.DateTime);
+                                            tagComment, label.DateTime);
                                     }))
                                 {
                                     ++tagCount;
@@ -321,8 +337,19 @@ namespace Hpdi.Vss2Git
                                 {
                                     if (File.Exists(targetPath))
                                     {
-                                        File.Delete(targetPath);
-                                        needCommit = true;
+                                        // not sure how it can happen, but a project can evidently
+                                        // contain another file with the same logical name, so check
+                                        // that this is not the case before deleting the file
+                                        if (pathMapper.ProjectContainsLogicalName(project, target))
+                                        {
+                                            logger.WriteLine("NOTE: {0} contains another file named {1}; not deleting file",
+                                                projectDesc, target.LogicalName);
+                                        }
+                                        else
+                                        {
+                                            File.Delete(targetPath);
+                                            needCommit = true;
+                                        }
                                     }
                                 }
                             }
@@ -338,16 +365,24 @@ namespace Hpdi.Vss2Git
                             if (targetPath != null && !itemInfo.Destroyed)
                             {
                                 var sourcePath = Path.Combine(projectPath, renameAction.OriginalName);
-                                var projectInfo = itemInfo as VssProjectInfo;
-                                if (projectInfo == null || projectInfo.ContainsFiles())
+                                if (target.IsProject ? Directory.Exists(sourcePath) : File.Exists(sourcePath))
                                 {
-                                    CaseSensitiveRename(sourcePath, targetPath, git.Move);
-                                    needCommit = true;
+                                    // renaming a file or a project that contains files?
+                                    var projectInfo = itemInfo as VssProjectInfo;
+                                    if (projectInfo == null || projectInfo.ContainsFiles())
+                                    {
+                                        CaseSensitiveRename(sourcePath, targetPath, git.Move);
+                                        needCommit = true;
+                                    }
+                                    else
+                                    {
+                                        // git doesn't care about directories with no files
+                                        CaseSensitiveRename(sourcePath, targetPath, Directory.Move);
+                                    }
                                 }
                                 else
                                 {
-                                    // git doesn't care about directories with no files
-                                    CaseSensitiveRename(sourcePath, targetPath, Directory.Move);
+                                    logger.WriteLine("NOTE: Skipping rename because {0} does not exist", sourcePath);
                                 }
                             }
                         }
@@ -426,6 +461,8 @@ namespace Hpdi.Vss2Git
                             var branchAction = (VssBranchAction)revision.Action;
                             logger.WriteLine("{0}: {1} {2}", projectDesc, actionType, target.LogicalName);
                             itemInfo = pathMapper.BranchFile(project, target, branchAction.Source);
+                            // branching within the project might happen after branching of the file
+                            writeFile = true;
                         }
                         break;
 
@@ -504,8 +541,13 @@ namespace Hpdi.Vss2Git
                     }
                 }
             }
-            else if (actionType == VssActionType.Edit)
+            // item is a file, not a project
+            else if (actionType == VssActionType.Edit || actionType == VssActionType.Branch)
             {
+                // if the action is Branch, the following code is necessary only if the item
+                // was branched from a file that is not part of the migration subset; it will
+                // make sure we start with the correct revision instead of the first revision
+
                 var target = revision.Item;
 
                 // update current rev

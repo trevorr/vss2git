@@ -106,6 +106,21 @@ namespace Hpdi.Vss2Git.Properties {
                 this["TranscodeComments"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ForceAnnotatedTags
+        {
+            get
+            {
+                return ((bool)(this["ForceAnnotatedTags"]));
+            }
+            set
+            {
+                this["ForceAnnotatedTags"] = value;
+            }
+        }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

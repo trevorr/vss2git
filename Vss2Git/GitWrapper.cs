@@ -216,6 +216,11 @@ namespace Hpdi.Vss2Git
                 startInfo.EnvironmentVariables["GIT_AUTHOR_EMAIL"] = authorEmail;
                 startInfo.EnvironmentVariables["GIT_AUTHOR_DATE"] = GetUtcTimeString(localTime);
 
+                // also setting the committer is supposedly useful for converting to Mercurial
+                startInfo.EnvironmentVariables["GIT_COMMITTER_NAME"] = authorName;
+                startInfo.EnvironmentVariables["GIT_COMMITTER_EMAIL"] = authorEmail;
+                startInfo.EnvironmentVariables["GIT_COMMITTER_DATE"] = GetUtcTimeString(localTime);
+
                 // ignore empty commits, since they are non-trivial to detect
                 // (e.g. when renaming a directory)
                 return ExecuteUnless(startInfo, "nothing to commit");
@@ -248,8 +253,8 @@ namespace Hpdi.Vss2Git
             // convert local time to UTC based on whether DST was in effect at the time
             var utcTime = TimeZoneInfo.ConvertTimeToUtc(localTime);
 
-            // format time according to RFC 2822
-            return utcTime.ToString("ddd MMM dd HH':'mm':'ss yyyy +0000");
+            // format time according to ISO 8601 (avoiding locale-dependent month/day names)
+            return utcTime.ToString("yyyy'-'MM'-'dd HH':'mm':'ss +0000");
         }
 
         private void GitExec(string args)

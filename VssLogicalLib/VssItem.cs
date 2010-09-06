@@ -142,7 +142,7 @@ namespace Hpdi.VssLogicalLib
                 comment = new CommentRecord();
                 ItemFile.ReadRecord(comment, revision.CommentOffset);
             }
-            else if (revision.Action == Action.Label &&
+            else if (revision.Action == VssPhysicalLib.Action.Label &&
                 revision.LabelCommentLength > 0 && revision.LabelCommentOffset > 0)
             {
                 comment = new CommentRecord();
