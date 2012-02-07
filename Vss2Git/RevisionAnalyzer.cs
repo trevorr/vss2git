@@ -19,15 +19,35 @@ using System.Diagnostics;
 using System.Threading;
 using Hpdi.VssLogicalLib;
 using Hpdi.VssPhysicalLib;
+using System.Collections;
+using System.IO;
 
 namespace Hpdi.Vss2Git
 {
+    /// <summary>
+    /// Value holder for time sequence fixes.
+    /// </summary>
+    /// <author>Remigius Stalder</author>
+    class TimeFix
+    {
+        public TimeFix(DateTime start, DateTime end, DateTime newTime)
+        {
+            this.start = start;
+            this.end = end;
+            this.newTime = newTime;
+        }
+        public DateTime start;
+        public DateTime end;
+        public DateTime newTime;
+    }
+
     /// <summary>
     /// Enumerates revisions in a VSS database.
     /// </summary>
     /// <author>Trevor Robinson</author>
     class RevisionAnalyzer : Worker
     {
+        private LinkedList<TimeFix> timeFixList;
         private string excludeFiles;
         public string ExcludeFiles
         {
@@ -104,6 +124,12 @@ namespace Hpdi.Vss2Git
             else if (project.Database != database)
             {
                 throw new ArgumentException("Project database mismatch", "project");
+            }
+
+            if (timeFixList == null)
+            {
+                // load the time fix list only once
+                timeFixList = ReadTimeFixList(database.BasePath, "time-fix-list.txt");
             }
 
             rootProjects.AddLast(project);
@@ -185,7 +211,19 @@ namespace Hpdi.Vss2Git
         {
             try
             {
-                foreach (VssRevision vssRevision in item.Revisions)
+                VssRevision previousRevision = null;
+                LinkedList<VssRevision> revisions = new LinkedList<VssRevision>();
+                IEnumerable<VssRevision> originalRevisions = item.Revisions; // this is recreated from the file each time it is queried!!!
+                foreach (VssRevision vssRevision in originalRevisions)
+                {
+                    if (previousRevision != null)
+                    {
+                        checkRevisionTime(item, previousRevision, vssRevision);
+                    }
+                    previousRevision = vssRevision;
+                    revisions.AddLast(vssRevision);
+                }
+                foreach (VssRevision vssRevision in revisions)
                 {
                     var actionType = vssRevision.Action.Type;
                     var namedAction = vssRevision.Action as VssNamedAction;
@@ -228,6 +266,98 @@ namespace Hpdi.Vss2Git
                 LogException(e, message);
                 ReportError(message);
             }
+        }
+
+        private void checkRevisionTime(VssItem item, VssRevision revision1, VssRevision revision2)
+        {
+            int version1 = revision1.Version;
+            int version2 = revision2.Version;
+            DateTime time1 = revision1.DateTime;
+            DateTime time2 = revision2.DateTime;
+
+            if (version1 > version2)
+            {
+                string msg = item.Name + "(" + item.PhysicalName + ")";
+                logger.WriteLine("***** warning: revision number out of sequence: " + version1
+                    + " before " + version2 + " for item " + msg);
+            }
+            if (time1.CompareTo(time2) > 0)
+            {
+                string msg = item.Name + "(" + item.PhysicalName + ")";
+                logger.WriteLine("***** warning: revision time out of sequence: " + time1 + "@" + version1
+                    + " later than " + time2 + "@" + version2 + " for item " + msg);
+
+                // as we are only looking at items that are out of sequence, we try to fix
+                // each of them as it may be the first or the second
+                fixSequence(item, revision1);
+                fixSequence(item, revision2);
+            }
+        }
+
+        private void fixSequence(VssItem item, VssRevision revision)
+        {
+            if (timeFixList != null)
+            {
+                foreach (TimeFix timeFix in timeFixList)
+                {
+                    DateTime time = revision.DateTime;
+                    if (time.CompareTo(timeFix.start) > 0 && time.CompareTo(timeFix.end) < 0)
+                    {
+                        int version = revision.Version;
+                        revision.FixDateTime(timeFix.newTime);
+                        string msg = item.Name + "(" + item.PhysicalName + ")";
+                        logger.WriteLine("changed time " + time + " to " + timeFix.newTime + " for item " + msg + "@" + version);
+                    }
+                }
+            }
+        }
+
+        public LinkedList<TimeFix> ReadTimeFixList(string repoPath, string fileName)
+        {
+            LinkedList<TimeFix> timeFixList = new LinkedList<TimeFix>();
+            string finalPath = Path.Combine(repoPath, fileName);
+            // read the time fix file either from the repository path or from the working directory
+            if (!File.Exists(finalPath))
+            {
+                finalPath = fileName;
+            }
+            if (!File.Exists(finalPath))
+            {
+                // if the time fix file don't exist, return an empty dictionary
+                logger.WriteLine("time fix file not found: " + finalPath);
+                return timeFixList;
+            }
+            try
+            {
+                foreach (string line in File.ReadAllLines(finalPath))
+                {
+                    // read lines that contain a '=' sign and skip comment lines starting with a '#'
+                    if ((!string.IsNullOrEmpty(line)) &&
+                        (!line.StartsWith("#")) &&
+                        (line.Contains("=")))
+                    {
+                        int index1 = line.IndexOf("to");
+                        int index2 = line.IndexOf('=');
+                        if (index1 < index2)
+                        {
+                            string startStr = line.Substring(0, index1).Trim();
+                            string endStr = line.Substring(index1 + 2, index2 - index1 - 2).Trim();
+                            string newTimeStr = line.Substring(index2 + 1).Trim();
+                            DateTime start = DateTime.Parse(startStr);
+                            DateTime end = DateTime.Parse(endStr);
+                            DateTime newTime = DateTime.Parse(newTimeStr);
+                            timeFixList.AddLast(new TimeFix(start, end, newTime));
+                        }
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                logger.WriteLine("error reading time fix file " + finalPath + ": " + x.Message);
+            }
+
+            logger.WriteLine(timeFixList.Count + " time fix entries read from " + finalPath);
+            return timeFixList;
         }
     }
 }
