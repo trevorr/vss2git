@@ -27,38 +27,11 @@ namespace Hpdi.Vss2Git
     /// Wraps execution of Git and implements the common Git commands.
     /// </summary>
     /// <author>Trevor Robinson</author>
-    class GitWrapper
+    class GitWrapper : AbstractVcsWrapper
     {
-        private readonly string repoPath;
-        private readonly Logger logger;
-        private readonly Stopwatch stopwatch = new Stopwatch();
-        private string gitExecutable = "git.exe";
-        private string gitInitialArguments = null;
-        private bool shellQuoting = false;
+        public static readonly string gitExecutable = "git";
+
         private Encoding commitEncoding = Encoding.UTF8;
-
-        public TimeSpan ElapsedTime
-        {
-            get { return stopwatch.Elapsed; }
-        }
-
-        public string GitExecutable
-        {
-            get { return gitExecutable; }
-            set { gitExecutable = value; }
-        }
-
-        public string GitInitialArguments
-        {
-            get { return gitInitialArguments; }
-            set { gitInitialArguments = value; }
-        }
-
-        public bool ShellQuoting
-        {
-            get { return shellQuoting; }
-            set { shellQuoting = value; }
-        }
 
         public Encoding CommitEncoding
         {
@@ -66,143 +39,81 @@ namespace Hpdi.Vss2Git
             set { commitEncoding = value; }
         }
 
-        public GitWrapper(string repoPath, Logger logger)
+        public GitWrapper(string repoPath, Logger logger, Encoding commitEncoding)
+            : base(repoPath, logger, gitExecutable)
         {
-            this.repoPath = repoPath;
-            this.logger = logger;
+            this.commitEncoding = commitEncoding;
         }
 
-        public bool FindExecutable()
+        public override void Init()
         {
-            string foundPath;
-            if (FindInPathVar("git.exe", out foundPath))
+            VcsExec("init");
+        }
+
+        public override void Configure()
+        {
+            if (commitEncoding.WebName != "utf-8")
             {
-                gitExecutable = foundPath;
-                gitInitialArguments = null;
-                shellQuoting = false;
-                return true;
+                SetConfig("i18n.commitencoding", commitEncoding.WebName);
             }
-            if (FindInPathVar("git.cmd", out foundPath))
-            {
-                gitExecutable = "cmd.exe";
-                gitInitialArguments = "/c git";
-                shellQuoting = true;
-                return true;
-            }
-            return false;
         }
 
-        public void Init()
-        {
-            GitExec("init");
-        }
-
-        public void SetConfig(string name, string value)
-        {
-            GitExec("config " + name + " " + Quote(value));
-        }
-
-        public bool Add(string path)
+        public override bool Add(string path)
         {
             var startInfo = GetStartInfo("add -- " + QuoteRelativePath(path));
 
             // add fails if there are no files (directories don't count)
-            return ExecuteUnless(startInfo, "did not match any files");
+            bool result = ExecuteUnless(startInfo, "did not match any files");
+            if (result) SetNeedsCommit();
+            return result;
         }
 
-        public bool Add(IEnumerable<string> paths)
+        public override bool AddDir(string path)
         {
-            if (CollectionUtil.IsEmpty(paths))
-            {
-                return false;
-            }
-
-            var args = new StringBuilder("add -- ");
-            CollectionUtil.Join(args, " ", CollectionUtil.Transform<string, string>(paths, QuoteRelativePath));
-            var startInfo = GetStartInfo(args.ToString());
-
-            // add fails if there are no files (directories don't count)
-            return ExecuteUnless(startInfo, "did not match any files");
+            // do nothing - git does not care about directories
+            return true;
         }
 
-        public bool AddAll()
+        public override bool AddAll()
         {
             var startInfo = GetStartInfo("add -A");
 
             // add fails if there are no files (directories don't count)
-            return ExecuteUnless(startInfo, "did not match any files");
+            bool result = ExecuteUnless(startInfo, "did not match any files");
+            if (result) SetNeedsCommit();
+            return result;
         }
 
-        public void Remove(string path, bool recursive)
+        public override void RemoveFile(string path)
         {
-            GitExec("rm " + (recursive ? "-r -f " : "") + "-- " + QuoteRelativePath(path));
+            VcsExec("rm -- " + QuoteRelativePath(path));
+            SetNeedsCommit();
         }
 
-        public void Move(string sourcePath, string destPath)
+        public override void RemoveDir(string path, bool recursive)
         {
-            GitExec("mv -- " + QuoteRelativePath(sourcePath) + " " + QuoteRelativePath(destPath));
+            VcsExec("rm " + (recursive ? "-r -f " : "") + "-- " + QuoteRelativePath(path));
+            SetNeedsCommit();
         }
 
-        class TempFile : IDisposable
+        public override void RemoveEmptyDir(string path)
         {
-            private readonly string name;
-            private readonly FileStream fileStream;
-
-            public string Name
-            {
-                get { return name; }
-            }
-
-            public TempFile()
-            {
-                name = Path.GetTempFileName();
-                fileStream = new FileStream(name, FileMode.Truncate, FileAccess.Write, FileShare.Read);
-            }
-
-            public void Write(string text, Encoding encoding)
-            {
-                var bytes = encoding.GetBytes(text);
-                fileStream.Write(bytes, 0, bytes.Length);
-                fileStream.Flush();
-            }
-
-            public void Dispose()
-            {
-                if (fileStream != null)
-                {
-                    fileStream.Dispose();
-                }
-                if (name != null)
-                {
-                    File.Delete(name);
-                }
-            }
+            // do nothing - remove only on file system - git doesn't care about directories with no files
         }
 
-        private void AddComment(string comment, ref string args, out TempFile tempFile)
+        public override void Move(string sourcePath, string destPath)
         {
-            tempFile = null;
-            if (!string.IsNullOrEmpty(comment))
-            {
-                // need to use a temporary file to specify the comment when not
-                // using the system default code page or it contains newlines
-                if (commitEncoding.CodePage != Encoding.Default.CodePage || comment.IndexOf('\n') >= 0)
-                {
-                    logger.WriteLine("Generating temp file for comment: {0}", comment);
-                    tempFile = new TempFile();
-                    tempFile.Write(comment, commitEncoding);
-
-                    // temporary path might contain spaces (e.g. "Documents and Settings")
-                    args += " -F " + Quote(tempFile.Name);
-                }
-                else
-                {
-                    args += " -m " + Quote(comment);
-                }
-            }
+            VcsExec("mv -- " + QuoteRelativePath(sourcePath) + " " + QuoteRelativePath(destPath));
+            SetNeedsCommit();
         }
 
-        public bool Commit(string authorName, string authorEmail, string comment, DateTime localTime)
+        public override void MoveEmptyDir(string sourcePath, string destPath)
+        {
+            // move only on file system - git doesn't care about directories with no files
+            Directory.Move(sourcePath, destPath);
+        }
+
+        public override bool DoCommit(string authorName, string authorEmail, string comment, DateTime localTime)
         {
             TempFile commentFile;
 
@@ -227,7 +138,7 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        public void Tag(string name, string taggerName, string taggerEmail, string comment, DateTime localTime)
+        public override void Tag(string name, string taggerName, string taggerEmail, string comment, DateTime localTime)
         {
             TempFile commentFile;
 
@@ -248,6 +159,34 @@ namespace Hpdi.Vss2Git
             }
         }
 
+        private void SetConfig(string name, string value)
+        {
+            VcsExec("config " + name + " " + Quote(value));
+        }
+
+        private void AddComment(string comment, ref string args, out TempFile tempFile)
+        {
+            tempFile = null;
+            if (!string.IsNullOrEmpty(comment))
+            {
+                // need to use a temporary file to specify the comment when not
+                // using the system default code page or it contains newlines
+                if (commitEncoding.CodePage != Encoding.Default.CodePage || comment.IndexOf('\n') >= 0)
+                {
+                    Logger.WriteLine("Generating temp file for comment: {0}", comment);
+                    tempFile = new TempFile();
+                    tempFile.Write(comment, commitEncoding);
+
+                    // temporary path might contain spaces (e.g. "Documents and Settings")
+                    args += " -F " + Quote(tempFile.Name);
+                }
+                else
+                {
+                    args += " -m " + Quote(comment);
+                }
+            }
+        }
+
         private static string GetUtcTimeString(DateTime localTime)
         {
             // convert local time to UTC based on whether DST was in effect at the time
@@ -255,238 +194,6 @@ namespace Hpdi.Vss2Git
 
             // format time according to ISO 8601 (avoiding locale-dependent month/day names)
             return utcTime.ToString("yyyy'-'MM'-'dd HH':'mm':'ss +0000");
-        }
-
-        private void GitExec(string args)
-        {
-            var startInfo = GetStartInfo(args);
-            ExecuteUnless(startInfo, null);
-        }
-
-        private ProcessStartInfo GetStartInfo(string args)
-        {
-            if (!string.IsNullOrEmpty(gitInitialArguments))
-            {
-                args = gitInitialArguments + " " + args;
-            }
-
-            var startInfo = new ProcessStartInfo(gitExecutable, args);
-            startInfo.UseShellExecute = false;
-            startInfo.RedirectStandardInput = true;
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
-            startInfo.WorkingDirectory = repoPath;
-            startInfo.CreateNoWindow = true;
-            return startInfo;
-        }
-
-        private bool ExecuteUnless(ProcessStartInfo startInfo, string unless)
-        {
-            string stdout, stderr;
-            int exitCode = Execute(startInfo, out stdout, out stderr);
-            if (exitCode != 0)
-            {
-                if (string.IsNullOrEmpty(unless) ||
-                    ((string.IsNullOrEmpty(stdout) || !stdout.Contains(unless)) &&
-                     (string.IsNullOrEmpty(stderr) || !stderr.Contains(unless))))
-                {
-                    FailExitCode(startInfo.FileName, startInfo.Arguments, stdout, stderr, exitCode);
-                }
-            }
-            return exitCode == 0;
-        }
-
-        private static void FailExitCode(string exec, string args, string stdout, string stderr, int exitCode)
-        {
-            throw new ProcessExitException(
-                string.Format("git returned exit code {0}", exitCode),
-                exec, args, stdout, stderr);
-        }
-
-        private int Execute(ProcessStartInfo startInfo, out string stdout, out string stderr)
-        {
-            logger.WriteLine("Executing: {0} {1}", startInfo.FileName, startInfo.Arguments);
-            stopwatch.Start();
-            try
-            {
-                using (var process = Process.Start(startInfo))
-                {
-                    process.StandardInput.Close();
-                    var stdoutReader = new AsyncLineReader(process.StandardOutput.BaseStream);
-                    var stderrReader = new AsyncLineReader(process.StandardError.BaseStream);
-
-                    var activityEvent = new ManualResetEvent(false);
-                    EventHandler activityHandler = delegate { activityEvent.Set(); };
-                    process.Exited += activityHandler;
-                    stdoutReader.DataReceived += activityHandler;
-                    stderrReader.DataReceived += activityHandler;
-
-                    var stdoutBuffer = new StringBuilder();
-                    var stderrBuffer = new StringBuilder();
-                    while (true)
-                    {
-                        activityEvent.Reset();
-
-                        while (true)
-                        {
-                            string line = stdoutReader.ReadLine();
-                            if (line != null)
-                            {
-                                line = line.TrimEnd();
-                                if (stdoutBuffer.Length > 0)
-                                {
-                                    stdoutBuffer.AppendLine();
-                                }
-                                stdoutBuffer.Append(line);
-                                logger.Write('>');
-                            }
-                            else
-                            {
-                                line = stderrReader.ReadLine();
-                                if (line != null)
-                                {
-                                    line = line.TrimEnd();
-                                    if (stderrBuffer.Length > 0)
-                                    {
-                                        stderrBuffer.AppendLine();
-                                    }
-                                    stderrBuffer.Append(line);
-                                    logger.Write('!');
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            }
-                            logger.WriteLine(line);
-                        }
-
-                        if (process.HasExited)
-                        {
-                            break;
-                        }
-
-                        activityEvent.WaitOne(1000);
-                    }
-
-                    stdout = stdoutBuffer.ToString();
-                    stderr = stderrBuffer.ToString();
-                    return process.ExitCode;
-                }
-            }
-            catch (FileNotFoundException e)
-            {
-                throw new ProcessException("Executable not found.",
-                    e, startInfo.FileName, startInfo.Arguments);
-            }
-            catch (Win32Exception e)
-            {
-                throw new ProcessException("Error executing external process.",
-                    e, startInfo.FileName, startInfo.Arguments);
-            }
-            finally
-            {
-                stopwatch.Stop();
-            }
-        }
-
-        private bool FindInPathVar(string filename, out string foundPath)
-        {
-            string path = Environment.GetEnvironmentVariable("PATH");
-            if (!string.IsNullOrEmpty(path))
-            {
-                return FindInPaths(filename, path.Split(Path.PathSeparator), out foundPath);
-            }
-            foundPath = null;
-            return false;
-        }
-
-        private bool FindInPaths(string filename, IEnumerable<string> searchPaths, out string foundPath)
-        {
-            foreach (string searchPath in searchPaths)
-            {
-                string path = Path.Combine(searchPath, filename);
-                if (File.Exists(path))
-                {
-                    foundPath = path;
-                    return true;
-                }
-            }
-            foundPath = null;
-            return false;
-        }
-
-        private const char QuoteChar = '"';
-        private const char EscapeChar = '\\';
-
-        private string QuoteRelativePath(string path)
-        {
-            if (path.StartsWith(repoPath))
-            {
-                path = path.Substring(repoPath.Length);
-                if (path.StartsWith("\\") || path.StartsWith("/"))
-                {
-                    path = path.Substring(1);
-                }
-            }
-            return Quote(path);
-        }
-        /// <summary>
-        /// Puts quotes around a command-line argument if it includes whitespace
-        /// or quotes.
-        /// </summary>
-        /// <remarks>
-        /// There are two things going on in this method: quoting and escaping.
-        /// Quoting puts the entire string in quotes, whereas escaping is per-
-        /// character. Quoting happens only if necessary, when whitespace or a
-        /// quote is encountered somewhere in the string, and escaping happens
-        /// only within quoting. Spaces don't need escaping, since that's what
-        /// the quotes are for. Slashes don't need escaping because apparently a
-        /// backslash is only interpreted as an escape when it precedes a quote.
-        /// Otherwise both slash and backslash are just interpreted as directory
-        /// separators.
-        /// </remarks>
-        /// <param name="arg">A command-line argument to quote.</param>
-        /// <returns>The given argument, possibly in quotes, with internal
-        /// quotes escaped with backslashes.</returns>
-        private string Quote(string arg)
-        {
-            if (string.IsNullOrEmpty(arg))
-            {
-                return "\"\"";
-            }
-
-            StringBuilder buf = null;
-            for (int i = 0; i < arg.Length; ++i)
-            {
-                char c = arg[i];
-                if (buf == null && NeedsQuoting(c))
-                {
-                    buf = new StringBuilder(arg.Length + 2);
-                    buf.Append(QuoteChar);
-                    buf.Append(arg, 0, i);
-                }
-                if (buf != null)
-                {
-                    if (c == QuoteChar)
-                    {
-                        buf.Append(EscapeChar);
-                    }
-                    buf.Append(c);
-                }
-            }
-            if (buf != null)
-            {
-                buf.Append(QuoteChar);
-                return buf.ToString();
-            }
-            return arg;
-        }
-
-        private bool NeedsQuoting(char c)
-        {
-            return char.IsWhiteSpace(c) || c == QuoteChar ||
-                (shellQuoting && (c == '&' || c == '|' || c == '<' || c == '>' || c == '^' || c == '%'));
         }
     }
 }

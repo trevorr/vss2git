@@ -105,17 +105,17 @@ namespace Hpdi.Vss2Git
 
                 if (!string.IsNullOrEmpty(outDirTextBox.Text))
                 {
-                    var gitExporter = new GitExporter(workQueue, logger,
+                    var vcsExporter = new VcsExporter(workQueue, logger,
                         revisionAnalyzer, changesetBuilder);
                     if (!string.IsNullOrEmpty(domainTextBox.Text))
                     {
-                        gitExporter.EmailDomain = domainTextBox.Text;
+                        vcsExporter.EmailDomain = domainTextBox.Text;
                     }
                     if (!transcodeCheckBox.Checked)
                     {
-                        gitExporter.CommitEncoding = encoding;
+                        vcsExporter.CommitEncoding = encoding;
                     }
-                    gitExporter.ExportToGit(outDirTextBox.Text);
+                    vcsExporter.ExportToVcs(outDirTextBox.Text);
                 }
 
                 workQueue.Idle += delegate

@@ -61,9 +61,11 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AbstractVcsWrapper.cs" />
     <Compile Include="AsyncLineReader.cs" />
     <Compile Include="CollectionUtil.cs" />
     <Compile Include="ChangesetBuilder.cs" />
+    <Compile Include="IVcsWrapper.cs" />
     <Compile Include="ProcessException.cs" />
     <Compile Include="ExceptionFormatter.cs">
     </Compile>
@@ -71,8 +73,9 @@
     <Compile Include="StreamCopier.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="GitWrapper.cs" />
+    <Compile Include="SvnWrapper.cs" />
     <Compile Include="VssPathMapper.cs" />
-    <Compile Include="GitExporter.cs" />
+    <Compile Include="VcsExporter.cs" />
     <Compile Include="ProcessExitException.cs" />
     <Compile Include="RevisionAnalyzer.cs" />
     <Compile Include="SimpleWorkQueue.cs" />
