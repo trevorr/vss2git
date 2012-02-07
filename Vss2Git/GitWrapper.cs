@@ -135,7 +135,7 @@ namespace Hpdi.Vss2Git
 
         public void Remove(string path, bool recursive)
         {
-            GitExec("rm " + (recursive ? "-r " : "") + "-- " + QuoteRelativePath(path));
+            GitExec("rm " + (recursive ? "-r -f " : "") + "-- " + QuoteRelativePath(path));
         }
 
         public void Move(string sourcePath, string destPath)
