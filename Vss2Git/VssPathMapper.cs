@@ -597,6 +597,12 @@ namespace Hpdi.Vss2Git
                     {
                         ++rootLength;
                     }
+
+                    // Fix the scenario where the projectSpec equals rootInfo.OriginalVssPath 
+                    // the root cannot have a parent
+                    if (projectSpec.Equals(rootInfo.OriginalVssPath)) 
+                        goto NotFound; 
+
                     var subpath = projectSpec.Substring(rootLength);
                     var subprojectNames = subpath.Split('/');
                     var projectInfo = rootInfo;
