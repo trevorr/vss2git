@@ -17,12 +17,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
-using System.IO;
 
 namespace Hpdi.Vss2Git
 {
@@ -143,6 +143,41 @@ namespace Hpdi.Vss2Git
                 var replayStopwatch = new Stopwatch();
                 var labels = new LinkedList<Revision>();
                 tagsUsed.Clear();
+
+                // create a log of all MoveFrom and MoveTo actions
+                int changeSetNo = 0;
+                int revisionNo = 0;
+                foreach (var changeset in changesets)
+                {
+                    foreach (var revision in changeset.Revisions)
+                    {
+                        var actionType = revision.Action.Type;
+                        VssItemName target = null;
+                        var namedAction = revision.Action as VssNamedAction;
+                        if (namedAction != null)
+                        {
+                            target = namedAction.Name;
+                        }
+
+                        switch (actionType)
+                        {
+                            case VssActionType.MoveFrom:
+                                var moveFromAction = (VssMoveFromAction)revision.Action;
+                                logger.WriteLine("{3}-{4}-{0}: MoveFrom {1} to {2}",
+                                    revision.Item, moveFromAction.OriginalProject, target, changeSetNo, revisionNo);
+                                break;
+                            case VssActionType.MoveTo:
+                                var moveToAction = (VssMoveToAction)revision.Action;
+                                logger.WriteLine("{3}-{4}-{0}: MoveTo {1} from {2}",
+                                    revision.Item, moveToAction.NewProject, target, changeSetNo, revisionNo);
+                                break;
+                        }
+                        revisionNo++;
+                    }
+                    changeSetNo++;
+                }
+
+                // now replay the change sets
                 foreach (var changeset in changesets)
                 {
                     var changesetDesc = string.Format(CultureInfo.InvariantCulture,
@@ -399,14 +434,25 @@ namespace Hpdi.Vss2Git
                             var moveFromAction = (VssMoveFromAction)revision.Action;
                             logger.WriteLine("{0}: Move from {1} to {2}",
                                 projectDesc, moveFromAction.OriginalProject, targetPath ?? target.LogicalName);
-                            var sourcePath = pathMapper.GetProjectPath(target.PhysicalName);
-                            var projectInfo = pathMapper.MoveProjectFrom(
-                                project, target, moveFromAction.OriginalProject);
-                            if (targetPath != null && !projectInfo.Destroyed)
+
+                            var isInside = pathMapper.IsInRoot(moveFromAction.OriginalProject);
+
+                            if (isInside)
                             {
+                                // MoveFrom -> inside scope: handle actual move in VCS
+                                logger.WriteLine("start MoveFrom -> inside " + moveFromAction.OriginalProject + " (move in VCS)");
+
+                                var sourcePath = pathMapper.GetProjectPath(target.PhysicalName);
+                                if (sourcePath != null && sourcePath.Equals(targetPath))
+                                {
+                                    logger.WriteLine("***** warning: move with source path equal to target path " + sourcePath);
+                                }
+                                itemInfo = pathMapper.MoveProjectFrom(
+                                    project, target, moveFromAction.OriginalProject);
+
                                 if (sourcePath != null && Directory.Exists(sourcePath))
                                 {
-                                    if (projectInfo.ContainsFiles())
+                                    if (((VssProjectInfo)itemInfo).ContainsFiles())
                                     {
                                         wrapper.Move(sourcePath, targetPath);
                                     }
@@ -417,9 +463,15 @@ namespace Hpdi.Vss2Git
                                 }
                                 else
                                 {
-                                    // project was moved from a now-destroyed project
-                                    writeProject = true;
+                                    logger.WriteLine("***** warning: inside move with non existing source " + moveFromAction.OriginalProject);
                                 }
+                            }
+                            else
+                            {
+                                // MoveFrom -> outside scope: recover
+                                logger.WriteLine("start MoveFrom -> outside " + moveFromAction.OriginalProject + " (recover)");
+                                itemInfo = pathMapper.RecoverItem(project, target);
+                                isAddAction = true;
                             }
                         }
                         break;
@@ -430,12 +482,37 @@ namespace Hpdi.Vss2Git
                             var moveToAction = (VssMoveToAction)revision.Action;
                             logger.WriteLine("{0}: Move to {1} from {2}",
                                 projectDesc, moveToAction.NewProject, targetPath ?? target.LogicalName);
-                            var projectInfo = pathMapper.MoveProjectTo(
-                                project, target, moveToAction.NewProject);
-                            if (projectInfo.Destroyed && targetPath != null && Directory.Exists(targetPath))
+
+                            var isInside = pathMapper.IsInRoot(moveToAction.NewProject);
+                            if (isInside)
                             {
-                                // project was moved to a now-destroyed project; remove empty directory
-                                Directory.Delete(targetPath, true);
+                                // MoveTo -> inside scope: do nothing - paired with corresponding MoveFrom that handles actual move
+                                logger.WriteLine("start MoveTo -> inside " + moveToAction.NewProject + " (do nothing)");
+                            }
+                            else
+                            {
+                                // MoveTo -> outside scope: delete - no matching MoveFrom available
+                                logger.WriteLine("start MoveTo -> outside " + moveToAction.NewProject + " (delete)");
+
+                                itemInfo = pathMapper.DeleteItem(project, target);
+                                if (targetPath != null && target.IsProject)
+                                {
+                                    logger.WriteLine("MoveTo delete");
+                                    // project was moved to a now-destroyed project; remove the directory
+                                    if (((VssProjectInfo)itemInfo).ContainsFiles())
+                                    {
+                                        wrapper.RemoveDir(targetPath, true);
+                                    }
+                                    else
+                                    {
+                                        wrapper.RemoveEmptyDir(targetPath);
+                                    }
+                                    if (Directory.Exists(targetPath))
+                                    {
+                                        Directory.Delete(targetPath, true);
+                                    }
+                                    logger.WriteLine("MoveTo delete (done)");
+                                }
                             }
                         }
                         break;

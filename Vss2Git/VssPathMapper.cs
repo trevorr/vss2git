@@ -632,11 +632,43 @@ namespace Hpdi.Vss2Git
             return null;
         }
 
-        public static string GetWorkingPath(string workingRoot, string vssPath)
+        public bool IsInRoot(string vssPath)
+        {
+            return GetRoot(vssPath) != null;
+        }
+
+        public VssProjectInfo GetRoot(string vssPath)
+        {
+            foreach (var rootInfo in rootInfos.Values)
+            {
+                string path = rootInfo.OriginalVssPath;
+                if (vssPath.StartsWith(path))
+                {
+                    return rootInfo;
+                }
+            }
+            return null;
+        }
+
+        public string GetWorkingPath(string workingRoot, string vssPath)
         {
             if (vssPath == "$")
             {
                 return workingRoot;
+            }
+
+            foreach (var rootInfo in rootInfos.Values)
+            {
+                string path = rootInfo.OriginalVssPath;
+                if (vssPath.StartsWith(path))
+                {
+                    vssPath = vssPath.Substring(path.Length);
+                    if (vssPath.StartsWith("/"))
+                    {
+                        vssPath = vssPath.Substring(1);
+                    }
+                    continue;
+                }
             }
 
             if (vssPath.StartsWith("$/"))

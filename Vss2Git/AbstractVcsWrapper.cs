@@ -41,7 +41,6 @@ namespace Hpdi.Vss2Git
         private const char EscapeChar = '\\';
 
         protected AbstractVcsWrapper(string repoPath, Logger logger, string vcs)
-
         {
 
             this.repoPath = repoPath;
@@ -63,9 +62,9 @@ namespace Hpdi.Vss2Git
             return initialArguments;
         }
 
-        public string RepoPath
+        public string GetRepoPath()
         {
-            get { return repoPath; }
+            return repoPath;
         }
 
         public Logger Logger
@@ -215,8 +214,8 @@ namespace Hpdi.Vss2Git
                     while (true)
                     {
                         activityEvent.Reset();
-                        while(appendBuffer(stdoutBuffer, stdoutReader, '>'));
-                        while(appendBuffer(stderrBuffer, stderrReader, '!'));
+                        while (appendBuffer(stdoutBuffer, stdoutReader, '>')) ;
+                        while (appendBuffer(stderrBuffer, stderrReader, '!')) ;
 
                         if (process.HasExited)
                         {
