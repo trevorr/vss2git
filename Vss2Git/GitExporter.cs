@@ -119,7 +119,8 @@ namespace Hpdi.Vss2Git
                 // create mappings for root projects
                 foreach (var rootProject in revisionAnalyzer.RootProjects)
                 {
-                    var rootPath = VssPathMapper.GetWorkingPath(repoPath, rootProject.Path);
+                    // root must be repo path here - the path mapper uses paths relative to this one
+                    var rootPath = repoPath;
                     pathMapper.SetProjectPath(rootProject.PhysicalName, rootPath, rootProject.Path);
                 }
 

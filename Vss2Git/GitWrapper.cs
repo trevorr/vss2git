@@ -104,7 +104,7 @@ namespace Hpdi.Vss2Git
 
         public bool Add(string path)
         {
-            var startInfo = GetStartInfo("add -- " + Quote(path));
+            var startInfo = GetStartInfo("add -- " + QuoteRelativePath(path));
 
             // add fails if there are no files (directories don't count)
             return ExecuteUnless(startInfo, "did not match any files");
@@ -118,7 +118,7 @@ namespace Hpdi.Vss2Git
             }
 
             var args = new StringBuilder("add -- ");
-            CollectionUtil.Join(args, " ", CollectionUtil.Transform<string, string>(paths, Quote));
+            CollectionUtil.Join(args, " ", CollectionUtil.Transform<string, string>(paths, QuoteRelativePath));
             var startInfo = GetStartInfo(args.ToString());
 
             // add fails if there are no files (directories don't count)
@@ -135,12 +135,12 @@ namespace Hpdi.Vss2Git
 
         public void Remove(string path, bool recursive)
         {
-            GitExec("rm " + (recursive ? "-r " : "") + "-- " + Quote(path));
+            GitExec("rm " + (recursive ? "-r " : "") + "-- " + QuoteRelativePath(path));
         }
 
         public void Move(string sourcePath, string destPath)
         {
-            GitExec("mv -- " + Quote(sourcePath) + " " + Quote(destPath));
+            GitExec("mv -- " + QuoteRelativePath(sourcePath) + " " + QuoteRelativePath(destPath));
         }
 
         class TempFile : IDisposable
@@ -419,6 +419,18 @@ namespace Hpdi.Vss2Git
         private const char QuoteChar = '"';
         private const char EscapeChar = '\\';
 
+        private string QuoteRelativePath(string path)
+        {
+            if (path.StartsWith(repoPath))
+            {
+                path = path.Substring(repoPath.Length);
+                if (path.StartsWith("\\") || path.StartsWith("/"))
+                {
+                    path = path.Substring(1);
+                }
+            }
+            return Quote(path);
+        }
         /// <summary>
         /// Puts quotes around a command-line argument if it includes whitespace
         /// or quotes.
