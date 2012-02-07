@@ -215,48 +215,19 @@ namespace Hpdi.Vss2Git
                     while (true)
                     {
                         activityEvent.Reset();
-
-                        while (true)
-                        {
-                            string line = stdoutReader.ReadLine();
-                            if (line != null)
-                            {
-                                line = line.TrimEnd();
-                                if (stdoutBuffer.Length > 0)
-                                {
-                                    stdoutBuffer.AppendLine();
-                                }
-                                stdoutBuffer.Append(line);
-                                Logger.Write('>');
-                            }
-                            else
-                            {
-                                line = stderrReader.ReadLine();
-                                if (line != null)
-                                {
-                                    line = line.TrimEnd();
-                                    if (stderrBuffer.Length > 0)
-                                    {
-                                        stderrBuffer.AppendLine();
-                                    }
-                                    stderrBuffer.Append(line);
-                                    Logger.Write('!');
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            }
-                            Logger.WriteLine(line);
-                        }
+                        while(appendBuffer(stdoutBuffer, stdoutReader, '>'));
+                        while(appendBuffer(stderrBuffer, stderrReader, '!'));
 
                         if (process.HasExited)
                         {
                             break;
                         }
 
-                        activityEvent.WaitOne(1000);
+                        activityEvent.WaitOne(200);
                     }
+                    Thread.Sleep(50);
+                    while (appendBuffer(stdoutBuffer, stdoutReader, '>')) ;
+                    while (appendBuffer(stderrBuffer, stderrReader, '!')) ;
 
                     stdout = stdoutBuffer.ToString();
                     stderr = stderrBuffer.ToString();
@@ -277,6 +248,24 @@ namespace Hpdi.Vss2Git
             {
                 Stopwatch.Stop();
             }
+        }
+
+        public bool appendBuffer(StringBuilder buffer, AsyncLineReader reader, char prefix)
+        {
+            string line = reader.ReadLine();
+            if (line != null)
+            {
+                line = line.TrimEnd();
+                if (buffer.Length > 0)
+                {
+                    buffer.AppendLine();
+                }
+                buffer.Append(line);
+                Logger.Write('>');
+                Logger.WriteLine(line);
+                return true;
+            }
+            return false;
         }
 
         public string QuoteRelativePath(string path)
