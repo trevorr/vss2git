@@ -14,6 +14,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -39,6 +40,7 @@ namespace Hpdi.Vss2Git
         private readonly ChangesetBuilder changesetBuilder;
         private readonly StreamCopier streamCopier = new StreamCopier();
         private readonly HashSet<string> tagsUsed = new HashSet<string>();
+        private readonly IDictionary<string, string> emailDictionary;
 
         private string emailDomain = "localhost";
         public string EmailDomain
@@ -62,12 +64,14 @@ namespace Hpdi.Vss2Git
         }
 
         public VcsExporter(WorkQueue workQueue, Logger logger,
-            RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder)
+            RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder,
+            IDictionary<string, string> emailDictionary)
             : base(workQueue, logger)
         {
             this.database = revisionAnalyzer.Database;
             this.revisionAnalyzer = revisionAnalyzer;
             this.changesetBuilder = changesetBuilder;
+            this.emailDictionary = emailDictionary;
         }
 
         public static bool isSvn(string repoPath)
@@ -694,8 +698,14 @@ namespace Hpdi.Vss2Git
 
         private string GetEmail(string user)
         {
-            // TODO: user-defined mapping of user names to email addresses
-            return user.ToLower().Replace(' ', '.') + "@" + emailDomain;
+            // keys to the dictionary: user name in lower case, blanks replaced by dots
+            user = user.ToLower().Replace(' ', '.');
+            if (emailDictionary != null && emailDictionary.ContainsKey(user))
+            {
+                return emailDictionary[user];
+            }
+            // if we can't find the user in the dictionary, we return an default email
+            return user + "@" + emailDomain;
         }
 
         private string GetTagFromLabel(string label)

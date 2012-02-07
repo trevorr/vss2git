@@ -19,6 +19,7 @@ using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
+using System.IO;
 
 namespace Hpdi.Vss2Git
 {
@@ -90,6 +91,8 @@ namespace Hpdi.Vss2Git
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
+                // read the emails dictionary
+                var emailDictionary = ReadDictionaryFile("e-mail dictionary", db.BasePath, "emails.properties");
 
                 revisionAnalyzer = new RevisionAnalyzer(workQueue, logger, db);
                 if (!string.IsNullOrEmpty(excludeTextBox.Text))
@@ -106,7 +109,7 @@ namespace Hpdi.Vss2Git
                 if (!string.IsNullOrEmpty(outDirTextBox.Text))
                 {
                     var vcsExporter = new VcsExporter(workQueue, logger,
-                        revisionAnalyzer, changesetBuilder);
+                        revisionAnalyzer, changesetBuilder, emailDictionary);
                     if (!string.IsNullOrEmpty(domainTextBox.Text))
                     {
                         vcsExporter.EmailDomain = domainTextBox.Text;
@@ -246,6 +249,46 @@ namespace Hpdi.Vss2Git
             settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
             settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
             settings.Save();
+        }
+
+        private IDictionary<string, string> ReadDictionaryFile(string fileKind, string repoPath, string fileName)
+        {
+            Dictionary<string, string> dictionary = new Dictionary<string, string>();
+            string finalPath = Path.Combine(repoPath, fileName);
+            // read the properties file either from the repository path or from the working directory
+            if (!File.Exists(finalPath))
+            {
+                finalPath = fileName;
+            }
+            if (!File.Exists(finalPath))
+            {
+                // if the properties don't exist, return an empty dictionary
+                logger.WriteLine(fileKind + " not found: " + finalPath);
+                return dictionary;
+            }
+            try
+            {
+                foreach (string line in File.ReadAllLines(finalPath))
+                {
+                    // read lines that contain a '=' sign and skip comment lines starting with a '#'
+                    if ((!string.IsNullOrEmpty(line)) &&
+                        (!line.StartsWith("#")) &&
+                        (line.Contains("=")))
+                    {
+                        int index = line.IndexOf('=');
+                        string key = line.Substring(0, index).Trim();
+                        string value = line.Substring(index + 1).Trim();
+                        dictionary.Add(key, value);
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                logger.WriteLine("error reading " + fileKind + " from " + finalPath + ": " + x.Message);
+            }
+
+            logger.WriteLine(dictionary.Count + " entries read from " + fileKind + " at " + finalPath);
+            return dictionary;
         }
     }
 }
