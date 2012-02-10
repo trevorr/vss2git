@@ -31,6 +31,7 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.vssGroupBox = new System.Windows.Forms.GroupBox();
+            this.vssDirButton = new System.Windows.Forms.Button();
             this.encodingLabel = new System.Windows.Forms.Label();
             this.encodingComboBox = new System.Windows.Forms.ComboBox();
             this.excludeTextBox = new System.Windows.Forms.TextBox();
@@ -48,10 +49,15 @@
             this.changeLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.timeLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.outputGroupBox = new System.Windows.Forms.GroupBox();
+            this.outDirButton = new System.Windows.Forms.Button();
+            this.resetRepoCheckBox = new System.Windows.Forms.CheckBox();
             this.vcsSetttingsTabs = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.forceAnnotatedCheckBox = new System.Windows.Forms.CheckBox();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.svnRepoButton = new System.Windows.Forms.Button();
+            this.svnProjectPathTextBox = new System.Windows.Forms.TextBox();
+            this.svnProjectPathLabel = new System.Windows.Forms.Label();
             this.svnBranchesTextBox = new System.Windows.Forms.TextBox();
             this.svnTagsTextBox = new System.Windows.Forms.TextBox();
             this.svnTrunkTextBox = new System.Windows.Forms.TextBox();
@@ -81,9 +87,9 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.anyCommentUpDown = new System.Windows.Forms.NumericUpDown();
-            this.resetRepoCheckBox = new System.Windows.Forms.CheckBox();
-            this.svnProjectPathLabel = new System.Windows.Forms.Label();
-            this.svnProjectPathTextBox = new System.Windows.Forms.TextBox();
+            this.vssDirBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
+            this.outDirBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
+            this.svnRepoBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
             this.vssGroupBox.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.outputGroupBox.SuspendLayout();
@@ -99,6 +105,7 @@
             // 
             this.vssGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.vssGroupBox.Controls.Add(this.vssDirButton);
             this.vssGroupBox.Controls.Add(this.encodingLabel);
             this.vssGroupBox.Controls.Add(this.encodingComboBox);
             this.vssGroupBox.Controls.Add(this.excludeTextBox);
@@ -114,13 +121,23 @@
             this.vssGroupBox.TabStop = false;
             this.vssGroupBox.Text = "VSS Settings";
             // 
+            // vssDirButton
+            // 
+            this.vssDirButton.Image = ((System.Drawing.Image)(resources.GetObject("vssDirButton.Image")));
+            this.vssDirButton.Location = new System.Drawing.Point(531, 17);
+            this.vssDirButton.Name = "vssDirButton";
+            this.vssDirButton.Size = new System.Drawing.Size(23, 23);
+            this.vssDirButton.TabIndex = 2;
+            this.vssDirButton.UseVisualStyleBackColor = true;
+            this.vssDirButton.Click += new System.EventHandler(this.vssDirButton_Click);
+            // 
             // encodingLabel
             // 
             this.encodingLabel.AutoSize = true;
             this.encodingLabel.Location = new System.Drawing.Point(6, 100);
             this.encodingLabel.Name = "encodingLabel";
             this.encodingLabel.Size = new System.Drawing.Size(52, 13);
-            this.encodingLabel.TabIndex = 6;
+            this.encodingLabel.TabIndex = 7;
             this.encodingLabel.Text = "Encoding";
             // 
             // encodingComboBox
@@ -132,7 +149,7 @@
             this.encodingComboBox.Location = new System.Drawing.Point(90, 97);
             this.encodingComboBox.Name = "encodingComboBox";
             this.encodingComboBox.Size = new System.Drawing.Size(464, 21);
-            this.encodingComboBox.TabIndex = 7;
+            this.encodingComboBox.TabIndex = 8;
             // 
             // excludeTextBox
             // 
@@ -141,7 +158,7 @@
             this.excludeTextBox.Location = new System.Drawing.Point(90, 71);
             this.excludeTextBox.Name = "excludeTextBox";
             this.excludeTextBox.Size = new System.Drawing.Size(464, 20);
-            this.excludeTextBox.TabIndex = 5;
+            this.excludeTextBox.TabIndex = 6;
             // 
             // excludeLabel
             // 
@@ -149,7 +166,7 @@
             this.excludeLabel.Location = new System.Drawing.Point(6, 74);
             this.excludeLabel.Name = "excludeLabel";
             this.excludeLabel.Size = new System.Drawing.Size(66, 13);
-            this.excludeLabel.TabIndex = 4;
+            this.excludeLabel.TabIndex = 5;
             this.excludeLabel.Text = "Exclude files";
             // 
             // vssProjectTextBox
@@ -159,7 +176,7 @@
             this.vssProjectTextBox.Location = new System.Drawing.Point(90, 45);
             this.vssProjectTextBox.Name = "vssProjectTextBox";
             this.vssProjectTextBox.Size = new System.Drawing.Size(464, 20);
-            this.vssProjectTextBox.TabIndex = 3;
+            this.vssProjectTextBox.TabIndex = 4;
             // 
             // vssDirTextBox
             // 
@@ -167,7 +184,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.vssDirTextBox.Location = new System.Drawing.Point(90, 19);
             this.vssDirTextBox.Name = "vssDirTextBox";
-            this.vssDirTextBox.Size = new System.Drawing.Size(464, 20);
+            this.vssDirTextBox.Size = new System.Drawing.Size(435, 20);
             this.vssDirTextBox.TabIndex = 1;
             // 
             // vssProjectLabel
@@ -176,7 +193,7 @@
             this.vssProjectLabel.Location = new System.Drawing.Point(6, 48);
             this.vssProjectLabel.Name = "vssProjectLabel";
             this.vssProjectLabel.Size = new System.Drawing.Size(40, 13);
-            this.vssProjectLabel.TabIndex = 2;
+            this.vssProjectLabel.TabIndex = 3;
             this.vssProjectLabel.Text = "Project";
             // 
             // vssDirLabel
@@ -253,6 +270,7 @@
             // 
             this.outputGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.outputGroupBox.Controls.Add(this.outDirButton);
             this.outputGroupBox.Controls.Add(this.resetRepoCheckBox);
             this.outputGroupBox.Controls.Add(this.vcsSetttingsTabs);
             this.outputGroupBox.Controls.Add(this.outKindLabel);
@@ -270,6 +288,28 @@
             this.outputGroupBox.TabStop = false;
             this.outputGroupBox.Text = "Output Settings";
             // 
+            // outDirButton
+            // 
+            this.outDirButton.Image = ((System.Drawing.Image)(resources.GetObject("outDirButton.Image")));
+            this.outDirButton.Location = new System.Drawing.Point(531, 17);
+            this.outDirButton.Name = "outDirButton";
+            this.outDirButton.Size = new System.Drawing.Size(23, 23);
+            this.outDirButton.TabIndex = 2;
+            this.outDirButton.UseVisualStyleBackColor = true;
+            this.outDirButton.Click += new System.EventHandler(this.outDirButton_Click);
+            // 
+            // resetRepoCheckBox
+            // 
+            this.resetRepoCheckBox.AutoSize = true;
+            this.resetRepoCheckBox.Checked = true;
+            this.resetRepoCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.resetRepoCheckBox.Location = new System.Drawing.Point(306, 98);
+            this.resetRepoCheckBox.Name = "resetRepoCheckBox";
+            this.resetRepoCheckBox.Size = new System.Drawing.Size(173, 17);
+            this.resetRepoCheckBox.TabIndex = 8;
+            this.resetRepoCheckBox.Text = "Reset Repository before Export";
+            this.resetRepoCheckBox.UseVisualStyleBackColor = true;
+            // 
             // vcsSetttingsTabs
             // 
             this.vcsSetttingsTabs.Controls.Add(this.tabPage1);
@@ -278,7 +318,7 @@
             this.vcsSetttingsTabs.Name = "vcsSetttingsTabs";
             this.vcsSetttingsTabs.SelectedIndex = 0;
             this.vcsSetttingsTabs.Size = new System.Drawing.Size(545, 159);
-            this.vcsSetttingsTabs.TabIndex = 9;
+            this.vcsSetttingsTabs.TabIndex = 10;
             // 
             // tabPage1
             // 
@@ -305,6 +345,7 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.svnRepoButton);
             this.tabPage2.Controls.Add(this.svnProjectPathTextBox);
             this.tabPage2.Controls.Add(this.svnProjectPathLabel);
             this.tabPage2.Controls.Add(this.svnBranchesTextBox);
@@ -328,26 +369,52 @@
             this.tabPage2.Text = "svn";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
+            // svnRepoButton
+            // 
+            this.svnRepoButton.Image = ((System.Drawing.Image)(resources.GetObject("svnRepoButton.Image")));
+            this.svnRepoButton.Location = new System.Drawing.Point(508, 4);
+            this.svnRepoButton.Name = "svnRepoButton";
+            this.svnRepoButton.Size = new System.Drawing.Size(23, 23);
+            this.svnRepoButton.TabIndex = 2;
+            this.svnRepoButton.UseVisualStyleBackColor = true;
+            this.svnRepoButton.Click += new System.EventHandler(this.svnRepoButton_Click);
+            // 
+            // svnProjectPathTextBox
+            // 
+            this.svnProjectPathTextBox.Location = new System.Drawing.Point(77, 32);
+            this.svnProjectPathTextBox.Name = "svnProjectPathTextBox";
+            this.svnProjectPathTextBox.Size = new System.Drawing.Size(454, 20);
+            this.svnProjectPathTextBox.TabIndex = 4;
+            // 
+            // svnProjectPathLabel
+            // 
+            this.svnProjectPathLabel.AutoSize = true;
+            this.svnProjectPathLabel.Location = new System.Drawing.Point(6, 35);
+            this.svnProjectPathLabel.Name = "svnProjectPathLabel";
+            this.svnProjectPathLabel.Size = new System.Drawing.Size(65, 13);
+            this.svnProjectPathLabel.TabIndex = 3;
+            this.svnProjectPathLabel.Text = "Project Path";
+            // 
             // svnBranchesTextBox
             // 
             this.svnBranchesTextBox.Location = new System.Drawing.Point(426, 107);
             this.svnBranchesTextBox.Name = "svnBranchesTextBox";
             this.svnBranchesTextBox.Size = new System.Drawing.Size(100, 20);
-            this.svnBranchesTextBox.TabIndex = 12;
+            this.svnBranchesTextBox.TabIndex = 15;
             // 
             // svnTagsTextBox
             // 
             this.svnTagsTextBox.Location = new System.Drawing.Point(233, 107);
             this.svnTagsTextBox.Name = "svnTagsTextBox";
             this.svnTagsTextBox.Size = new System.Drawing.Size(100, 20);
-            this.svnTagsTextBox.TabIndex = 11;
+            this.svnTagsTextBox.TabIndex = 13;
             // 
             // svnTrunkTextBox
             // 
             this.svnTrunkTextBox.Location = new System.Drawing.Point(77, 107);
             this.svnTrunkTextBox.Name = "svnTrunkTextBox";
             this.svnTrunkTextBox.Size = new System.Drawing.Size(87, 20);
-            this.svnTrunkTextBox.TabIndex = 10;
+            this.svnTrunkTextBox.TabIndex = 11;
             // 
             // svnBranchesLabel
             // 
@@ -355,7 +422,7 @@
             this.svnBranchesLabel.Location = new System.Drawing.Point(354, 110);
             this.svnBranchesLabel.Name = "svnBranchesLabel";
             this.svnBranchesLabel.Size = new System.Drawing.Size(51, 13);
-            this.svnBranchesLabel.TabIndex = 9;
+            this.svnBranchesLabel.TabIndex = 14;
             this.svnBranchesLabel.Text = "branches";
             // 
             // svnTagsLabel
@@ -364,7 +431,7 @@
             this.svnTagsLabel.Location = new System.Drawing.Point(185, 110);
             this.svnTagsLabel.Name = "svnTagsLabel";
             this.svnTagsLabel.Size = new System.Drawing.Size(27, 13);
-            this.svnTagsLabel.TabIndex = 8;
+            this.svnTagsLabel.TabIndex = 12;
             this.svnTagsLabel.Text = "tags";
             // 
             // svnTrunkLabel
@@ -373,7 +440,7 @@
             this.svnTrunkLabel.Location = new System.Drawing.Point(6, 110);
             this.svnTrunkLabel.Name = "svnTrunkLabel";
             this.svnTrunkLabel.Size = new System.Drawing.Size(31, 13);
-            this.svnTrunkLabel.TabIndex = 7;
+            this.svnTrunkLabel.TabIndex = 10;
             this.svnTrunkLabel.Text = "trunk";
             // 
             // svnStandardLayoutCheckBox
@@ -382,7 +449,7 @@
             this.svnStandardLayoutCheckBox.Location = new System.Drawing.Point(77, 84);
             this.svnStandardLayoutCheckBox.Name = "svnStandardLayoutCheckBox";
             this.svnStandardLayoutCheckBox.Size = new System.Drawing.Size(120, 17);
-            this.svnStandardLayoutCheckBox.TabIndex = 6;
+            this.svnStandardLayoutCheckBox.TabIndex = 9;
             this.svnStandardLayoutCheckBox.Text = "Use standard layout";
             this.svnStandardLayoutCheckBox.UseVisualStyleBackColor = true;
             this.svnStandardLayoutCheckBox.CheckedChanged += new System.EventHandler(this.svnStandardLayoutCheckBox_CheckedChanged);
@@ -391,7 +458,7 @@
             // 
             this.svnRepoTextBox.Location = new System.Drawing.Point(77, 6);
             this.svnRepoTextBox.Name = "svnRepoTextBox";
-            this.svnRepoTextBox.Size = new System.Drawing.Size(454, 20);
+            this.svnRepoTextBox.Size = new System.Drawing.Size(425, 20);
             this.svnRepoTextBox.TabIndex = 1;
             // 
             // svnRepoLabel
@@ -409,7 +476,7 @@
             this.svnUserLabel.Location = new System.Drawing.Point(6, 61);
             this.svnUserLabel.Name = "svnUserLabel";
             this.svnUserLabel.Size = new System.Drawing.Size(43, 13);
-            this.svnUserLabel.TabIndex = 2;
+            this.svnUserLabel.TabIndex = 5;
             this.svnUserLabel.Text = "User ID";
             // 
             // svnPasswordLabel
@@ -418,7 +485,7 @@
             this.svnPasswordLabel.Location = new System.Drawing.Point(273, 61);
             this.svnPasswordLabel.Name = "svnPasswordLabel";
             this.svnPasswordLabel.Size = new System.Drawing.Size(53, 13);
-            this.svnPasswordLabel.TabIndex = 4;
+            this.svnPasswordLabel.TabIndex = 7;
             this.svnPasswordLabel.Text = "Password";
             // 
             // svnPasswordTextBox
@@ -426,14 +493,14 @@
             this.svnPasswordTextBox.Location = new System.Drawing.Point(331, 58);
             this.svnPasswordTextBox.Name = "svnPasswordTextBox";
             this.svnPasswordTextBox.Size = new System.Drawing.Size(200, 20);
-            this.svnPasswordTextBox.TabIndex = 5;
+            this.svnPasswordTextBox.TabIndex = 8;
             // 
             // svnUserTextBox
             // 
             this.svnUserTextBox.Location = new System.Drawing.Point(77, 58);
             this.svnUserTextBox.Name = "svnUserTextBox";
             this.svnUserTextBox.Size = new System.Drawing.Size(191, 20);
-            this.svnUserTextBox.TabIndex = 3;
+            this.svnUserTextBox.TabIndex = 6;
             // 
             // outKindLabel
             // 
@@ -441,7 +508,7 @@
             this.outKindLabel.Location = new System.Drawing.Point(6, 132);
             this.outKindLabel.Name = "outKindLabel";
             this.outKindLabel.Size = new System.Drawing.Size(137, 13);
-            this.outKindLabel.TabIndex = 8;
+            this.outKindLabel.TabIndex = 9;
             this.outKindLabel.Text = "Output to the following VCS";
             // 
             // transcodeCheckBox
@@ -452,7 +519,7 @@
             this.transcodeCheckBox.Location = new System.Drawing.Point(9, 98);
             this.transcodeCheckBox.Name = "transcodeCheckBox";
             this.transcodeCheckBox.Size = new System.Drawing.Size(209, 17);
-            this.transcodeCheckBox.TabIndex = 6;
+            this.transcodeCheckBox.TabIndex = 7;
             this.transcodeCheckBox.Text = "Transcode commit comments to UTF-8";
             this.transcodeCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -463,7 +530,7 @@
             this.domainTextBox.Location = new System.Drawing.Point(90, 45);
             this.domainTextBox.Name = "domainTextBox";
             this.domainTextBox.Size = new System.Drawing.Size(464, 20);
-            this.domainTextBox.TabIndex = 3;
+            this.domainTextBox.TabIndex = 4;
             // 
             // domainLabel
             // 
@@ -471,7 +538,7 @@
             this.domainLabel.Location = new System.Drawing.Point(6, 49);
             this.domainLabel.Name = "domainLabel";
             this.domainLabel.Size = new System.Drawing.Size(69, 13);
-            this.domainLabel.TabIndex = 2;
+            this.domainLabel.TabIndex = 3;
             this.domainLabel.Text = "Email domain";
             // 
             // outDirTextBox
@@ -480,7 +547,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.outDirTextBox.Location = new System.Drawing.Point(90, 19);
             this.outDirTextBox.Name = "outDirTextBox";
-            this.outDirTextBox.Size = new System.Drawing.Size(464, 20);
+            this.outDirTextBox.Size = new System.Drawing.Size(435, 20);
             this.outDirTextBox.TabIndex = 1;
             // 
             // outDirLabel
@@ -499,7 +566,7 @@
             this.logTextBox.Location = new System.Drawing.Point(90, 72);
             this.logTextBox.Name = "logTextBox";
             this.logTextBox.Size = new System.Drawing.Size(464, 20);
-            this.logTextBox.TabIndex = 5;
+            this.logTextBox.TabIndex = 6;
             // 
             // logLabel
             // 
@@ -507,7 +574,7 @@
             this.logLabel.Location = new System.Drawing.Point(6, 75);
             this.logLabel.Name = "logLabel";
             this.logLabel.Size = new System.Drawing.Size(41, 13);
-            this.logLabel.TabIndex = 4;
+            this.logLabel.TabIndex = 5;
             this.logLabel.Text = "Log file";
             // 
             // cancelButton
@@ -597,33 +664,14 @@
             this.anyCommentUpDown.Size = new System.Drawing.Size(54, 20);
             this.anyCommentUpDown.TabIndex = 1;
             // 
-            // resetRepoCheckBox
+            // vssDirBrowserDialog
             // 
-            this.resetRepoCheckBox.AutoSize = true;
-            this.resetRepoCheckBox.Checked = true;
-            this.resetRepoCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.resetRepoCheckBox.Location = new System.Drawing.Point(306, 98);
-            this.resetRepoCheckBox.Name = "resetRepoCheckBox";
-            this.resetRepoCheckBox.Size = new System.Drawing.Size(173, 17);
-            this.resetRepoCheckBox.TabIndex = 7;
-            this.resetRepoCheckBox.Text = "Reset Repository before Export";
-            this.resetRepoCheckBox.UseVisualStyleBackColor = true;
+            this.vssDirBrowserDialog.Description = "Directory of the VSS archive";
+            this.vssDirBrowserDialog.ShowNewFolderButton = false;
             // 
-            // svnProjectPathLabel
+            // outDirBrowserDialog
             // 
-            this.svnProjectPathLabel.AutoSize = true;
-            this.svnProjectPathLabel.Location = new System.Drawing.Point(6, 35);
-            this.svnProjectPathLabel.Name = "svnProjectPathLabel";
-            this.svnProjectPathLabel.Size = new System.Drawing.Size(65, 13);
-            this.svnProjectPathLabel.TabIndex = 13;
-            this.svnProjectPathLabel.Text = "Project Path";
-            // 
-            // svnProjectPathTextBox
-            // 
-            this.svnProjectPathTextBox.Location = new System.Drawing.Point(77, 32);
-            this.svnProjectPathTextBox.Name = "svnProjectPathTextBox";
-            this.svnProjectPathTextBox.Size = new System.Drawing.Size(454, 20);
-            this.svnProjectPathTextBox.TabIndex = 14;
+            this.outDirBrowserDialog.Description = "Directory of the export target";
             // 
             // MainForm
             // 
@@ -721,6 +769,12 @@
         private System.Windows.Forms.CheckBox resetRepoCheckBox;
         private System.Windows.Forms.TextBox svnProjectPathTextBox;
         private System.Windows.Forms.Label svnProjectPathLabel;
+        private System.Windows.Forms.FolderBrowserDialog vssDirBrowserDialog;
+        private System.Windows.Forms.Button vssDirButton;
+        private System.Windows.Forms.Button outDirButton;
+        private System.Windows.Forms.FolderBrowserDialog outDirBrowserDialog;
+        private System.Windows.Forms.Button svnRepoButton;
+        private System.Windows.Forms.FolderBrowserDialog svnRepoBrowserDialog;
 
     }
 }

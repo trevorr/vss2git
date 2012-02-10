@@ -359,5 +359,33 @@ namespace Hpdi.Vss2Git
             svnTagsTextBox.Enabled = enabled;
             svnBranchesTextBox.Enabled = enabled;
         }
+
+        private void vssDirButton_Click(object sender, EventArgs e)
+        {
+            SelectDirectory(vssDirBrowserDialog, vssDirTextBox);
+        }
+
+        private void outDirButton_Click(object sender, EventArgs e)
+        {
+            SelectDirectory(outDirBrowserDialog, outDirTextBox);
+        }
+
+        private void svnRepoButton_Click(object sender, EventArgs e)
+        {
+            SelectDirectory(svnRepoBrowserDialog, svnRepoTextBox);
+        }
+
+        private void SelectDirectory(FolderBrowserDialog folderBrowser, TextBox textBox)
+        {
+            string directory = textBox.Text;
+            if (Directory.Exists(directory))
+            {
+                folderBrowser.SelectedPath = new DirectoryInfo(directory).FullName;
+            }
+            if (DialogResult.OK == folderBrowser.ShowDialog(this))
+            {
+                textBox.Text = folderBrowser.SelectedPath;
+            }
+        }
     }
 }
