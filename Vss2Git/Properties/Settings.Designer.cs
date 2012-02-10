@@ -262,5 +262,17 @@ namespace Hpdi.Vss2Git.Properties {
                 this["SvnProjectPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string LastSettingsFile {
+            get {
+                return ((string)(this["LastSettingsFile"]));
+            }
+            set {
+                this["LastSettingsFile"] = value;
+            }
+        }
     }
 }

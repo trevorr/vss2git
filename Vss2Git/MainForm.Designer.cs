@@ -90,6 +90,10 @@
             this.vssDirBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
             this.outDirBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
             this.svnRepoBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
+            this.settingsOpenFileDialog = new System.Windows.Forms.OpenFileDialog();
+            this.settingsSaveFileDialog = new System.Windows.Forms.SaveFileDialog();
+            this.saveSettingsButton = new System.Windows.Forms.Button();
+            this.loadSettingsButton = new System.Windows.Forms.Button();
             this.vssGroupBox.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.outputGroupBox.SuspendLayout();
@@ -673,6 +677,39 @@
             // 
             this.outDirBrowserDialog.Description = "Directory of the export target";
             // 
+            // settingsOpenFileDialog
+            // 
+            this.settingsOpenFileDialog.DefaultExt = "properties";
+            this.settingsOpenFileDialog.FileName = "settings.properties";
+            this.settingsOpenFileDialog.Filter = "Properties files|*.properties|All files|*.*";
+            this.settingsOpenFileDialog.RestoreDirectory = true;
+            // 
+            // settingsSaveFileDialog
+            // 
+            this.settingsSaveFileDialog.DefaultExt = "properties";
+            this.settingsSaveFileDialog.Filter = "Properties files|*.properties|All files|*.*";
+            this.settingsSaveFileDialog.RestoreDirectory = true;
+            // 
+            // saveSettingsButton
+            // 
+            this.saveSettingsButton.Location = new System.Drawing.Point(12, 545);
+            this.saveSettingsButton.Name = "saveSettingsButton";
+            this.saveSettingsButton.Size = new System.Drawing.Size(75, 23);
+            this.saveSettingsButton.TabIndex = 6;
+            this.saveSettingsButton.Text = "Save...";
+            this.saveSettingsButton.UseVisualStyleBackColor = true;
+            this.saveSettingsButton.Click += new System.EventHandler(this.saveSettingsButton_Click);
+            // 
+            // loadSettingsButton
+            // 
+            this.loadSettingsButton.Location = new System.Drawing.Point(93, 545);
+            this.loadSettingsButton.Name = "loadSettingsButton";
+            this.loadSettingsButton.Size = new System.Drawing.Size(75, 23);
+            this.loadSettingsButton.TabIndex = 7;
+            this.loadSettingsButton.Text = "Load...";
+            this.loadSettingsButton.UseVisualStyleBackColor = true;
+            this.loadSettingsButton.Click += new System.EventHandler(this.loadSettingsButton_Click);
+            // 
             // MainForm
             // 
             this.AcceptButton = this.goButton;
@@ -680,6 +717,8 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.cancelButton;
             this.ClientSize = new System.Drawing.Size(584, 598);
+            this.Controls.Add(this.loadSettingsButton);
+            this.Controls.Add(this.saveSettingsButton);
             this.Controls.Add(this.changesetGroupBox);
             this.Controls.Add(this.cancelButton);
             this.Controls.Add(this.outputGroupBox);
@@ -775,6 +814,10 @@
         private System.Windows.Forms.FolderBrowserDialog outDirBrowserDialog;
         private System.Windows.Forms.Button svnRepoButton;
         private System.Windows.Forms.FolderBrowserDialog svnRepoBrowserDialog;
+        private System.Windows.Forms.OpenFileDialog settingsOpenFileDialog;
+        private System.Windows.Forms.SaveFileDialog settingsSaveFileDialog;
+        private System.Windows.Forms.Button saveSettingsButton;
+        private System.Windows.Forms.Button loadSettingsButton;
 
     }
 }

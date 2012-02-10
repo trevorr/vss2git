@@ -20,6 +20,7 @@ using System.Text;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
 using System.IO;
+using System.Configuration;
 
 namespace Hpdi.Vss2Git
 {
@@ -37,10 +38,15 @@ namespace Hpdi.Vss2Git
         private Logger logger = Logger.Null;
         private RevisionAnalyzer revisionAnalyzer;
         private ChangesetBuilder changesetBuilder;
+        private string settingsFile;
 
-        public MainForm()
+        public MainForm(string[] args)
         {
             InitializeComponent();
+            if (args.Length > 0)
+            {
+                settingsFile = args[0];
+            }
         }
 
         private void OpenLog(string filename)
@@ -259,7 +265,100 @@ namespace Hpdi.Vss2Git
 
         private void ReadSettings()
         {
+            try
+            {
+                if (!string.IsNullOrEmpty(settingsFile))
+                {
+                    LoadSettings(settingsFile);
+                    return;
+                }
+            }
+            catch (Exception x)
+            {
+                ShowException(x);
+            }
             var settings = Properties.Settings.Default;
+            DisplaySettings(settings);
+        }
+
+        private void WriteSettings()
+        {
+            var settings = Properties.Settings.Default;
+            UpdateSettings(settings);
+            settings.Save();
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                var settings = Properties.Settings.Default;
+                string lastSettingsFile = settings.LastSettingsFile;
+                settingsSaveFileDialog.InitialDirectory = Path.GetDirectoryName(lastSettingsFile);
+                settingsSaveFileDialog.FileName = Path.GetFileName(lastSettingsFile);
+                if (DialogResult.OK == settingsSaveFileDialog.ShowDialog(this))
+                {
+                    string fileName = settingsSaveFileDialog.FileName;
+                    settings.LastSettingsFile = fileName;
+                    UpdateSettings(settings);
+                    var values = settings.PropertyValues;
+                    Dictionary<string, string> dictionary = new Dictionary<string, string>();
+                    foreach (SettingsPropertyValue value in values)
+                    {
+                        if (!value.UsingDefaultValue && !"LastSettingsFile".Equals(value.Name))
+                        {
+                            dictionary.Add(value.Name, value.SerializedValue.ToString());
+                        }
+                    }
+                    WriteDictionaryFile(dictionary, fileName);
+                }
+            }
+            catch (Exception x)
+            {
+                ShowException(x);
+            }
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                var settings = Properties.Settings.Default;
+                string lastSettingsFile = settings.LastSettingsFile;
+                settingsOpenFileDialog.InitialDirectory = Path.GetDirectoryName(lastSettingsFile);
+                settingsOpenFileDialog.FileName = Path.GetFileName(lastSettingsFile);
+                if (DialogResult.OK == settingsOpenFileDialog.ShowDialog(this))
+                {
+                    LoadSettings(settingsOpenFileDialog.FileName);
+                }
+            }
+            catch (Exception x)
+            {
+                ShowException(x);
+            }
+        }
+
+        private void LoadSettings(string fileName)
+        {
+            IDictionary<string, string> dictionary = ReadDictionaryFile(fileName);
+            var settings = Properties.Settings.Default;
+            settings.LastSettingsFile = fileName;
+            var values = settings.PropertyValues;
+            foreach (SettingsPropertyValue value in values)
+            {
+                if (dictionary.ContainsKey(value.Name))
+                {
+                    // it seems to be impossible to write to values directly, so we use a newly created one
+                    SettingsPropertyValue newValue = new System.Configuration.SettingsPropertyValue(value.Property);
+                    newValue.SerializedValue = dictionary[value.Name];
+                    settings[value.Name] = newValue.PropertyValue;
+                }
+            }
+            DisplaySettings(settings);
+        }
+
+        private void DisplaySettings(Properties.Settings settings)
+        {
             vssDirTextBox.Text = settings.VssDirectory;
             vssProjectTextBox.Text = settings.VssProject;
             excludeTextBox.Text = settings.VssExcludePaths;
@@ -294,9 +393,8 @@ namespace Hpdi.Vss2Git
             vcsSetttingsTabs.SelectTab(index);
         }
 
-        private void WriteSettings()
+        private void UpdateSettings(Properties.Settings settings)
         {
-            var settings = Properties.Settings.Default;
             settings.VssDirectory = vssDirTextBox.Text;
             settings.VssProject = vssProjectTextBox.Text;
             settings.VssExcludePaths = excludeTextBox.Text;
@@ -318,46 +416,64 @@ namespace Hpdi.Vss2Git
             settings.SvnTrunk = svnTrunkTextBox.Text;
             settings.SvnTags = svnTagsTextBox.Text;
             settings.SvnBranches = svnBranchesTextBox.Text;
-            settings.Save();
         }
 
         private IDictionary<string, string> ReadDictionaryFile(string fileKind, string repoPath, string fileName)
         {
-            Dictionary<string, string> dictionary = new Dictionary<string, string>();
             string finalPath = Path.Combine(repoPath, fileName);
             // read the properties file either from the repository path or from the working directory
             if (!File.Exists(finalPath))
             {
                 finalPath = fileName;
             }
-            if (!File.Exists(finalPath))
+            if (File.Exists(finalPath))
             {
-                // if the properties don't exist, return an empty dictionary
-                logger.WriteLine(fileKind + " not found: " + finalPath);
-                return dictionary;
-            }
-            try
-            {
-                foreach (string line in File.ReadAllLines(finalPath))
+                try
                 {
-                    // read lines that contain a '=' sign and skip comment lines starting with a '#'
-                    if ((!string.IsNullOrEmpty(line)) &&
-                        (!line.StartsWith("#")) &&
-                        (line.Contains("=")))
-                    {
-                        int index = line.IndexOf('=');
-                        string key = line.Substring(0, index).Trim();
-                        string value = line.Substring(index + 1).Trim();
-                        dictionary.Add(key, value);
-                    }
+                    IDictionary<string, string> dictionary = ReadDictionaryFile(finalPath);
+                    logger.WriteLine(dictionary.Count + " entries read from " + fileKind + " at " + finalPath);
+                    return dictionary;
+                }
+                catch (Exception x)
+                {
+                    logger.WriteLine("error reading " + fileKind + " from " + finalPath + ": " + x.Message);
                 }
             }
-            catch (Exception x)
+            else
             {
-                logger.WriteLine("error reading " + fileKind + " from " + finalPath + ": " + x.Message);
+                // if the properties doesn't exist, return an empty dictionary
+                logger.WriteLine(fileKind + " not found: " + finalPath);
+            }
+            return new Dictionary<string, string>();
+        }
+
+        private void WriteDictionaryFile(IDictionary<string, string> dictionary, string filePath)
+        {
+            string contents = "";
+            foreach (KeyValuePair<string, string> entry in dictionary)
+            {
+                contents += entry.Key + "=" + entry.Value + "\r\n";
+            }
+            File.WriteAllText(filePath, contents);
+        }
+
+        private IDictionary<string, string> ReadDictionaryFile(string filePath)
+        {
+            Dictionary<string, string> dictionary = new Dictionary<string, string>();
+            foreach (string line in File.ReadAllLines(filePath))
+            {
+                // read lines that contain a '=' sign and skip comment lines starting with a '#'
+                if ((!string.IsNullOrEmpty(line)) &&
+                    (!line.StartsWith("#")) &&
+                    (line.Contains("=")))
+                {
+                    int index = line.IndexOf('=');
+                    string key = line.Substring(0, index).Trim();
+                    string value = line.Substring(index + 1).Trim();
+                    dictionary.Add(key, value);
+                }
             }
 
-            logger.WriteLine(dictionary.Count + " entries read from " + fileKind + " at " + finalPath);
             return dictionary;
         }
 
@@ -395,6 +511,16 @@ namespace Hpdi.Vss2Git
             {
                 textBox.Text = folderBrowser.SelectedPath;
             }
+        }
+
+        private void saveSettingsButton_Click(object sender, EventArgs e)
+        {
+            SaveSettings();
+        }
+
+        private void loadSettingsButton_Click(object sender, EventArgs e)
+        {
+            LoadSettings();
         }
     }
 }
