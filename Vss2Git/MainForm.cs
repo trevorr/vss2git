@@ -135,6 +135,7 @@ namespace Hpdi.Vss2Git
 
                 statusTimer.Enabled = true;
                 goButton.Enabled = false;
+                cancelButton.Text = "Cancel";
             }
             catch (Exception ex)
             {
@@ -166,7 +167,14 @@ namespace Hpdi.Vss2Git
 
         private void cancelButton_Click(object sender, EventArgs e)
         {
-            workQueue.Abort();
+            if (goButton.Enabled)
+            {
+                Close();
+            }
+            else
+            {
+                workQueue.Abort();
+            }
         }
 
         private void statusTimer_Tick(object sender, EventArgs e)
@@ -193,6 +201,7 @@ namespace Hpdi.Vss2Git
 
                 statusTimer.Enabled = false;
                 goButton.Enabled = true;
+                cancelButton.Text = "Close";
             }
 
             var exceptions = workQueue.FetchExceptions();
