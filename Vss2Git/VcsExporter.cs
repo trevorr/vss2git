@@ -126,16 +126,13 @@ namespace Hpdi.Vss2Git
                     pathMapper.SetProjectPath(rootProject.PhysicalName, rootPath, rootProject.Path);
                 }
 
-                // replay each changeset
-                var changesetId = 1;
                 var changesets = changesetBuilder.Changesets;
-                var commitCount = 0;
-                var tagCount = 0;
-                var replayStopwatch = new Stopwatch();
-                var labels = new LinkedList<Revision>();
-                tagsUsed.Clear();
 
                 // create a log of all MoveFrom and MoveTo actions
+                logger.WriteSectionSeparator();
+                logger.WriteLine("List of Move Operations");
+                logger.WriteSectionSeparator();
+
                 int changeSetNo = 0;
                 int revisionNo = 0;
                 foreach (var changeset in changesets)
@@ -168,13 +165,24 @@ namespace Hpdi.Vss2Git
                     changeSetNo++;
                 }
 
-                // now replay the change sets
+                // replay each changeset
+                logger.WriteSectionSeparator();
+                logger.WriteLine("Replaying Changesets");
+
+                var changesetId = 1;
+                var commitCount = 0;
+                var tagCount = 0;
+                var replayStopwatch = new Stopwatch();
+                var labels = new LinkedList<Revision>();
+                tagsUsed.Clear();
+
                 foreach (var changeset in changesets)
                 {
                     var changesetDesc = string.Format(CultureInfo.InvariantCulture,
                         "changeset {0} from {1}", changesetId, changeset.DateTime);
 
                     // replay each revision in changeset
+                    logger.WriteSectionSeparator();
                     LogStatus(work, "Replaying " + changesetDesc);
                     labels.Clear();
                     replayStopwatch.Start();
