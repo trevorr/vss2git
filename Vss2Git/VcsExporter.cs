@@ -38,15 +38,23 @@ namespace Hpdi.Vss2Git
         private readonly VssDatabase database;
         private readonly RevisionAnalyzer revisionAnalyzer;
         private readonly ChangesetBuilder changesetBuilder;
+        private readonly IVcsWrapper vcsWrapper;
+        private readonly IDictionary<string, string> emailDictionary;
         private readonly StreamCopier streamCopier = new StreamCopier();
         private readonly HashSet<string> tagsUsed = new HashSet<string>();
-        private readonly IDictionary<string, string> emailDictionary;
 
         private string emailDomain = "localhost";
         public string EmailDomain
         {
             get { return emailDomain; }
             set { emailDomain = value; }
+        }
+
+        private bool resetRepo = true;
+        public bool ResetRepo
+        {
+            get { return resetRepo; }
+            set { resetRepo = value; }
         }
 
         private Encoding commitEncoding = Encoding.UTF8;
@@ -56,27 +64,16 @@ namespace Hpdi.Vss2Git
             set { commitEncoding = value; }
         }
 
-        private bool forceAnnotatedTags = true;
-        public bool ForceAnnotatedTags
-        {
-            get { return forceAnnotatedTags; }
-            set { forceAnnotatedTags = value; }
-        }
-
         public VcsExporter(WorkQueue workQueue, Logger logger,
             RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder,
-            IDictionary<string, string> emailDictionary)
+            IVcsWrapper vcsWrapper, IDictionary<string, string> emailDictionary)
             : base(workQueue, logger)
         {
             this.database = revisionAnalyzer.Database;
             this.revisionAnalyzer = revisionAnalyzer;
             this.changesetBuilder = changesetBuilder;
+            this.vcsWrapper = vcsWrapper;
             this.emailDictionary = emailDictionary;
-        }
-
-        public static bool isSvn(string repoPath)
-        {
-            return Directory.Exists(repoPath + "\\.svn");
         }
 
         public void ExportToVcs(string repoPath)
@@ -94,16 +91,6 @@ namespace Hpdi.Vss2Git
                     Directory.CreateDirectory(repoPath);
                 }
 
-                IVcsWrapper vcsWrapper;
-                if (isSvn(repoPath))
-                {
-                    vcsWrapper = new SvnWrapper(repoPath, "trunk", "tags", logger);
-                }
-                else
-                {
-                    vcsWrapper = new GitWrapper(repoPath, logger, commitEncoding);
-                }
-
                 string vcs = vcsWrapper.GetVcs();
 
                 while (!vcsWrapper.FindExecutable())
@@ -119,7 +106,7 @@ namespace Hpdi.Vss2Git
                     }
                 }
 
-                if (!RetryCancel(delegate { vcsWrapper.Init(); }))
+                if (!RetryCancel(delegate { vcsWrapper.Init(resetRepo); }))
                 {
                     return;
                 }
@@ -193,7 +180,7 @@ namespace Hpdi.Vss2Git
                     replayStopwatch.Start();
                     try
                     {
-                        ReplayChangeset(pathMapper, changeset, vcsWrapper, labels);
+                        ReplayChangeset(pathMapper, changeset, labels);
                     }
                     finally
                     {
@@ -209,7 +196,7 @@ namespace Hpdi.Vss2Git
                     if (vcsWrapper.NeedsCommit())
                     {
                         LogStatus(work, "Committing " + changesetDesc);
-                        if (CommitChangeset(vcsWrapper, changeset))
+                        if (CommitChangeset(changeset))
                         {
                             ++commitCount;
                         }
@@ -245,10 +232,9 @@ namespace Hpdi.Vss2Git
                                 }
                                 LogStatus(work, tagMessage);
 
-                                // annotated tags require (and are implied by) a tag message;
-                                // tools like Mercurial's git converter only import annotated tags
+                                // tags always get a tag message;
                                 var tagComment = label.Comment;
-                                if (string.IsNullOrEmpty(tagComment) && forceAnnotatedTags)
+                                if (string.IsNullOrEmpty(tagComment))
                                 {
                                     // use the original VSS label as the tag message if none was provided
                                     tagComment = labelName;
@@ -282,7 +268,7 @@ namespace Hpdi.Vss2Git
         }
 
         private void ReplayChangeset(VssPathMapper pathMapper, Changeset changeset,
-            IVcsWrapper wrapper, LinkedList<Revision> labels)
+            LinkedList<Revision> labels)
         {
             foreach (Revision revision in changeset.Revisions)
             {
@@ -293,13 +279,13 @@ namespace Hpdi.Vss2Git
 
                 AbortRetryIgnore(delegate
                 {
-                    ReplayRevision(pathMapper, revision, wrapper, labels);
+                    ReplayRevision(pathMapper, revision, labels);
                 });
             }
         }
 
         private void ReplayRevision(VssPathMapper pathMapper, Revision revision,
-            IVcsWrapper wrapper, LinkedList<Revision> labels)
+            LinkedList<Revision> labels)
         {
             var actionType = revision.Action.Type;
             if (revision.Item.IsProject)
@@ -370,11 +356,11 @@ namespace Hpdi.Vss2Git
                                     {
                                         if (((VssProjectInfo)itemInfo).ContainsFiles())
                                         {
-                                            wrapper.RemoveDir(targetPath, true);
+                                            vcsWrapper.RemoveDir(targetPath, true);
                                         }
                                         else
                                         {
-                                            wrapper.RemoveEmptyDir(targetPath);
+                                            vcsWrapper.RemoveEmptyDir(targetPath);
                                         }
                                     }
                                 }
@@ -392,7 +378,7 @@ namespace Hpdi.Vss2Git
                                         }
                                         else
                                         {
-                                            wrapper.RemoveFile(targetPath);
+                                            vcsWrapper.RemoveFile(targetPath);
                                         }
                                     }
                                 }
@@ -415,11 +401,11 @@ namespace Hpdi.Vss2Git
                                     var projectInfo = itemInfo as VssProjectInfo;
                                     if (projectInfo == null || projectInfo.ContainsFiles())
                                     {
-                                        CaseSensitiveRename(sourcePath, targetPath, wrapper.Move);
+                                        CaseSensitiveRename(sourcePath, targetPath, vcsWrapper.Move);
                                     }
                                     else
                                     {
-                                        CaseSensitiveRename(sourcePath, targetPath, wrapper.MoveEmptyDir);
+                                        CaseSensitiveRename(sourcePath, targetPath, vcsWrapper.MoveEmptyDir);
                                     }
                                 }
                                 else
@@ -458,11 +444,11 @@ namespace Hpdi.Vss2Git
                                 {
                                     if (((VssProjectInfo)itemInfo).ContainsFiles())
                                     {
-                                        wrapper.Move(sourcePath, targetPath);
+                                        vcsWrapper.Move(sourcePath, targetPath);
                                     }
                                     else
                                     {
-                                        wrapper.MoveEmptyDir(sourcePath, targetPath);
+                                        vcsWrapper.MoveEmptyDir(sourcePath, targetPath);
                                     }
                                 }
                                 else
@@ -505,11 +491,11 @@ namespace Hpdi.Vss2Git
                                     // project was moved to a now-destroyed project; remove the directory
                                     if (((VssProjectInfo)itemInfo).ContainsFiles())
                                     {
-                                        wrapper.RemoveDir(targetPath, true);
+                                        vcsWrapper.RemoveDir(targetPath, true);
                                     }
                                     else
                                     {
-                                        wrapper.RemoveEmptyDir(targetPath);
+                                        vcsWrapper.RemoveEmptyDir(targetPath);
                                     }
                                     if (Directory.Exists(targetPath))
                                     {
@@ -599,13 +585,12 @@ namespace Hpdi.Vss2Git
                             Directory.CreateDirectory(projectInfo.GetPath());
                         }
 
-                        wrapper.AddDir(targetPath);
-
+                        vcsWrapper.AddDir(targetPath);
                         // write current rev of all contained files
                         foreach (var fileInfo in pathMapper.GetAllFiles(target.PhysicalName))
                         {
                             WriteRevision(pathMapper, actionType, fileInfo.PhysicalName,
-                                fileInfo.Version, target.PhysicalName, wrapper);
+                                fileInfo.Version, target.PhysicalName);
                         }
                     }
                     else if (writeFile)
@@ -615,7 +600,7 @@ namespace Hpdi.Vss2Git
                         if (WriteRevisionTo(target.PhysicalName, version, targetPath))
                         {
                             // add file explicitly, so it is visible to subsequent vcs operations
-                            wrapper.Add(targetPath);
+                            vcsWrapper.Add(targetPath);
                         }
                     }
                 }
@@ -634,18 +619,18 @@ namespace Hpdi.Vss2Git
 
                 // write current rev to all sharing projects
                 WriteRevision(pathMapper, actionType, target.PhysicalName,
-                    revision.Version, null, wrapper);
-                wrapper.SetNeedsCommit();
+                    revision.Version, null);
+                vcsWrapper.SetNeedsCommit();
             }
         }
 
-        private bool CommitChangeset(IVcsWrapper wrapper, Changeset changeset)
+        private bool CommitChangeset(Changeset changeset)
         {
             var result = false;
             AbortRetryIgnore(delegate
             {
-                result = wrapper.AddAll() &&
-                    wrapper.Commit(changeset.User, GetEmail(changeset.User),
+                result = vcsWrapper.AddAll() &&
+                    vcsWrapper.Commit(changeset.User, GetEmail(changeset.User),
                     changeset.Comment ?? DefaultComment, changeset.DateTime);
             });
             return result;
@@ -727,7 +712,7 @@ namespace Hpdi.Vss2Git
         }
 
         private void WriteRevision(VssPathMapper pathMapper, VssActionType actionType,
-            string physicalName, int version, string underProject, IVcsWrapper wrapper)
+            string physicalName, int version, string underProject)
         {
             var paths = pathMapper.GetFilePaths(physicalName, underProject);
             foreach (string path in paths)
@@ -736,7 +721,7 @@ namespace Hpdi.Vss2Git
                 if (WriteRevisionTo(physicalName, version, path))
                 {
                     // add file explicitly, so it is visible to subsequent vcs operations
-                    wrapper.Add(path);
+                    vcsWrapper.Add(path);
                 }
             }
         }

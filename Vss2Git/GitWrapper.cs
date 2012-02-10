@@ -29,6 +29,7 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     class GitWrapper : AbstractVcsWrapper
     {
+        public static readonly string gitMetaDir = ".git";
         public static readonly string gitExecutable = "git";
 
         private Encoding commitEncoding = Encoding.UTF8;
@@ -39,14 +40,29 @@ namespace Hpdi.Vss2Git
             set { commitEncoding = value; }
         }
 
-        public GitWrapper(string repoPath, Logger logger, Encoding commitEncoding)
-            : base(repoPath, logger, gitExecutable)
+        private bool forceAnnotatedTags = true;
+        public bool ForceAnnotatedTags
         {
-            this.commitEncoding = commitEncoding;
+            get { return forceAnnotatedTags; }
+            set { forceAnnotatedTags = value; }
         }
 
-        public override void Init()
+        public GitWrapper(string outputDirectory, Logger logger, Encoding commitEncoding,
+            bool forceAnnotatedTags)
+            : base(outputDirectory, logger, gitExecutable, gitMetaDir)
         {
+            this.commitEncoding = commitEncoding;
+            this.forceAnnotatedTags = forceAnnotatedTags;
+        }
+
+        public override void Init(bool resetRepo)
+        {
+            if (resetRepo)
+            {
+                DeleteDirectory(GetOutputDirectory());
+                Thread.Sleep(0);
+                Directory.CreateDirectory(GetOutputDirectory());
+            }
             VcsExec("init");
         }
 
@@ -56,6 +72,7 @@ namespace Hpdi.Vss2Git
             {
                 SetConfig("i18n.commitencoding", commitEncoding.WebName);
             }
+            CheckOutputDirectory();
         }
 
         public override bool Add(string path)
@@ -143,6 +160,13 @@ namespace Hpdi.Vss2Git
             TempFile commentFile;
 
             var args = "tag";
+            // tools like Mercurial's git converter only import annotated tags
+            // remark: annotated tags are created with the git -a option,
+            // see e.g. http://learn.github.com/p/tagging.html
+            if (forceAnnotatedTags)
+            {
+                args += " -a";
+            }
             AddComment(comment, ref args, out commentFile);
 
             // tag names are not quoted because they cannot contain whitespace or quotes

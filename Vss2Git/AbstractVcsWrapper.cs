@@ -26,9 +26,10 @@ namespace Hpdi.Vss2Git
 {
     abstract class AbstractVcsWrapper : IVcsWrapper
     {
-        private readonly string repoPath;
+        private readonly string outputDirectory;
         private readonly Logger logger;
         private string vcs;
+        private string metaDir;
         private string executable;
         private string initialArguments;
         private bool shellQuoting;
@@ -40,12 +41,12 @@ namespace Hpdi.Vss2Git
         private const char QuoteChar = '"';
         private const char EscapeChar = '\\';
 
-        protected AbstractVcsWrapper(string repoPath, Logger logger, string vcs)
+        protected AbstractVcsWrapper(string outputDirectory, Logger logger, string vcs, string metaDir)
         {
-
-            this.repoPath = repoPath;
+            this.outputDirectory = outputDirectory;
             this.logger = logger;
             this.vcs = vcs;
+            this.metaDir = metaDir;
             needsCommit = false;
         }
 
@@ -62,9 +63,9 @@ namespace Hpdi.Vss2Git
             return initialArguments;
         }
 
-        public string GetRepoPath()
+        public string GetOutputDirectory()
         {
-            return repoPath;
+            return outputDirectory;
         }
 
         public Logger Logger
@@ -86,7 +87,6 @@ namespace Hpdi.Vss2Git
         {
             return stopwatch.Elapsed;
         }
-
 
         public bool FindExecutable()
         {
@@ -144,25 +144,43 @@ namespace Hpdi.Vss2Git
             }
         }
 
+        public void WriteStringToFile(string path, string text)
+        {
+            var file = new System.IO.StreamWriter(path);
+            file.WriteLine(text);
+            file.Close();
+        }
+
         public void VcsExec(string args)
         {
             var startInfo = GetStartInfo(args);
             ExecuteUnless(startInfo, null);
         }
 
+        public void Exec(string exe, string args)
+        {
+            var startInfo = GetStartInfo(exe, args);
+            ExecuteUnless(startInfo, null);
+        }
+
         public ProcessStartInfo GetStartInfo(string args)
+        {
+            return GetStartInfo(executable, args);
+        }
+
+        public ProcessStartInfo GetStartInfo(string exe, string args)
         {
             if (!string.IsNullOrEmpty(initialArguments))
             {
                 args = initialArguments + " " + args;
             }
 
-            var startInfo = new ProcessStartInfo(executable, args);
+            var startInfo = new ProcessStartInfo(exe, args);
             startInfo.UseShellExecute = false;
             startInfo.RedirectStandardInput = true;
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
-            startInfo.WorkingDirectory = repoPath;
+            startInfo.WorkingDirectory = outputDirectory;
             startInfo.CreateNoWindow = true;
             return startInfo;
         }
@@ -214,8 +232,8 @@ namespace Hpdi.Vss2Git
                     while (true)
                     {
                         activityEvent.Reset();
-                        while (appendBuffer(stdoutBuffer, stdoutReader, '>')) ;
-                        while (appendBuffer(stderrBuffer, stderrReader, '!')) ;
+                        while(appendBuffer(stdoutBuffer, stdoutReader, '>'));
+                        while(appendBuffer(stderrBuffer, stderrReader, '!'));
 
                         if (process.HasExited)
                         {
@@ -269,9 +287,9 @@ namespace Hpdi.Vss2Git
 
         public string QuoteRelativePath(string path)
         {
-            if (path.StartsWith(repoPath))
+            if (path.StartsWith(outputDirectory))
             {
-                path = path.Substring(repoPath.Length);
+                path = path.Substring(outputDirectory.Length);
                 if (path.StartsWith("\\") || path.StartsWith("/"))
                 {
                     path = path.Substring(1);
@@ -396,7 +414,61 @@ namespace Hpdi.Vss2Git
             return DoCommit(authorEmail, authorEmail, comment, localTime);
         }
 
-        public abstract void Init();
+        protected virtual void CheckOutputDirectory()
+        {
+            string[] files = Directory.GetFiles(outputDirectory);
+            string[] dirs = Directory.GetDirectories(outputDirectory);
+            if (files.Length > 0)
+            {
+                throw new ApplicationException("The output directory is not empty");
+            }
+            string metaDirSuffix = "\\" + metaDir;
+            foreach (string dir in dirs)
+            {
+                if (!dir.EndsWith(metaDirSuffix))
+                {
+                    throw new ApplicationException("The output directory is not empty");
+                }
+            }
+            if (!Directory.Exists(Path.Combine(outputDirectory, metaDir)))
+            {
+                throw new ApplicationException("The output directory does not contain the meta directory " + metaDir);
+            }
+        }
+
+        protected static void DeleteDirectory(string path)
+        {
+            // this method should be used with caution - therefore it is protected
+            if (!Directory.Exists(path))
+            {
+                return;
+            }
+            string[] files = Directory.GetFiles(path);
+            string[] dirs = Directory.GetDirectories(path);
+
+            foreach (string file in files)
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+                File.Delete(file);
+            }
+
+            foreach (string dir in dirs)
+            {
+                DeleteDirectory(dir);
+            }
+
+            try
+            {
+                Directory.Delete(path, false);
+            }
+            catch (IOException)
+            {
+                Thread.Sleep(0);
+                Directory.Delete(path, false);
+            }
+        }
+
+        public abstract void Init(bool resetRepo);
         public abstract void Configure();
         public abstract bool Add(string path);
         public abstract bool AddDir(string path);

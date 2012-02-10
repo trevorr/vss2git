@@ -29,6 +29,9 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     public partial class MainForm : Form
     {
+        public static readonly string vcsTypeGit = "git";
+        public static readonly string vcsTypeSvn = "svn";
+
         private readonly Dictionary<int, EncodingInfo> codePages = new Dictionary<int, EncodingInfo>();
         private readonly WorkQueue workQueue = new WorkQueue(1);
         private Logger logger = Logger.Null;
@@ -108,8 +111,10 @@ namespace Hpdi.Vss2Git
 
                 if (!string.IsNullOrEmpty(outDirTextBox.Text))
                 {
+                    IVcsWrapper vcsWrapper = CreateVcsWrapper(encoding);
+
                     var vcsExporter = new VcsExporter(workQueue, logger,
-                        revisionAnalyzer, changesetBuilder, emailDictionary);
+                        revisionAnalyzer, changesetBuilder, vcsWrapper, emailDictionary);
                     if (!string.IsNullOrEmpty(domainTextBox.Text))
                     {
                         vcsExporter.EmailDomain = domainTextBox.Text;
@@ -118,6 +123,7 @@ namespace Hpdi.Vss2Git
                     {
                         vcsExporter.CommitEncoding = encoding;
                     }
+                    vcsExporter.ResetRepo = resetRepoCheckBox.Checked;
                     vcsExporter.ExportToVcs(outDirTextBox.Text);
                 }
 
@@ -134,6 +140,28 @@ namespace Hpdi.Vss2Git
             {
                 ShowException(ex);
             }
+        }
+
+        private IVcsWrapper CreateVcsWrapper(Encoding commitEncoding)
+        {
+            string repoPath = outDirTextBox.Text;
+            string vcsType = vcsSetttingsTabs.SelectedTab.Text;
+            if (vcsType.Equals(vcsTypeGit))
+            {
+                return new GitWrapper(repoPath, logger, commitEncoding, forceAnnotatedCheckBox.Checked);
+            }
+            else if (vcsType.Equals(vcsTypeSvn))
+            {
+                bool stdLayout = svnStandardLayoutCheckBox.Checked;
+                string trunk = stdLayout ? SvnWrapper.stdTrunk : svnTrunkTextBox.Text;
+                string tags = stdLayout ? SvnWrapper.stdTags : svnTagsTextBox.Text;
+                string branches = stdLayout ? SvnWrapper.stdBranches : svnBranchesTextBox.Text;
+                var wrapper = new SvnWrapper(repoPath, svnRepoTextBox.Text, svnProjectPathTextBox.Text,
+                    trunk, tags, branches, logger);
+                wrapper.SetCredentials(svnUserTextBox.Text, svnPasswordTextBox.Text);
+                return wrapper;
+            }
+            throw new ArgumentOutOfRangeException("vcsType", vcsType, "Undefined VCS Type");
         }
 
         private void cancelButton_Click(object sender, EventArgs e)
@@ -226,13 +254,35 @@ namespace Hpdi.Vss2Git
             vssDirTextBox.Text = settings.VssDirectory;
             vssProjectTextBox.Text = settings.VssProject;
             excludeTextBox.Text = settings.VssExcludePaths;
-            outDirTextBox.Text = settings.GitDirectory;
+            outDirTextBox.Text = settings.OutDirectory;
             domainTextBox.Text = settings.DefaultEmailDomain;
             logTextBox.Text = settings.LogFile;
             transcodeCheckBox.Checked = settings.TranscodeComments;
+            resetRepoCheckBox.Checked = settings.ResetRepo;
             forceAnnotatedCheckBox.Checked = settings.ForceAnnotatedTags;
             anyCommentUpDown.Value = settings.AnyCommentSeconds;
             sameCommentUpDown.Value = settings.SameCommentSeconds;
+            svnRepoTextBox.Text = settings.SvnRepo;
+            svnProjectPathTextBox.Text = settings.SvnProjectPath;
+            svnUserTextBox.Text = String.IsNullOrEmpty(settings.SvnUser) ?
+                System.Environment.UserName : settings.SvnUser;
+            svnPasswordTextBox.Text = settings.SvnPassword;
+            svnStandardLayoutCheckBox.Checked = settings.SvnStandardLayout;
+            svnTrunkTextBox.Text = settings.SvnTrunk;
+            svnTagsTextBox.Text = settings.SvnTags;
+            svnBranchesTextBox.Text = settings.SvnBranches;
+
+            int index = 0;
+            int count = vcsSetttingsTabs.TabPages.Count;
+            for (int i = 0; i < count; i++)
+            {
+                if (vcsSetttingsTabs.TabPages[i].Text.Equals(settings.VcsType))
+                {
+                    index = i;
+                    break;
+                }
+            }
+            vcsSetttingsTabs.SelectTab(index);
         }
 
         private void WriteSettings()
@@ -241,13 +291,24 @@ namespace Hpdi.Vss2Git
             settings.VssDirectory = vssDirTextBox.Text;
             settings.VssProject = vssProjectTextBox.Text;
             settings.VssExcludePaths = excludeTextBox.Text;
-            settings.GitDirectory = outDirTextBox.Text;
+            settings.OutDirectory = outDirTextBox.Text;
             settings.DefaultEmailDomain = domainTextBox.Text;
             settings.LogFile = logTextBox.Text;
             settings.TranscodeComments = transcodeCheckBox.Checked;
+            settings.ResetRepo = resetRepoCheckBox.Checked;
             settings.ForceAnnotatedTags = forceAnnotatedCheckBox.Checked;
             settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
             settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
+            settings.VcsType = vcsSetttingsTabs.SelectedTab.Text;
+            settings.SvnRepo = svnRepoTextBox.Text;
+            settings.SvnProjectPath = svnProjectPathTextBox.Text;
+            settings.SvnUser = System.Environment.UserName.Equals(svnUserTextBox.Text) ?
+                "" : svnUserTextBox.Text;
+            settings.SvnPassword = svnPasswordTextBox.Text;
+            settings.SvnStandardLayout = svnStandardLayoutCheckBox.Checked;
+            settings.SvnTrunk = svnTrunkTextBox.Text;
+            settings.SvnTags = svnTagsTextBox.Text;
+            settings.SvnBranches = svnBranchesTextBox.Text;
             settings.Save();
         }
 
@@ -289,6 +350,14 @@ namespace Hpdi.Vss2Git
 
             logger.WriteLine(dictionary.Count + " entries read from " + fileKind + " at " + finalPath);
             return dictionary;
+        }
+
+        private void svnStandardLayoutCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            bool enabled = !svnStandardLayoutCheckBox.Checked;
+            svnTrunkTextBox.Enabled = enabled;
+            svnTagsTextBox.Enabled = enabled;
+            svnBranchesTextBox.Enabled = enabled;
         }
     }
 }
