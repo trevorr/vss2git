@@ -83,6 +83,12 @@ namespace Hpdi.VssPhysicalLib
         public int CommentLength { get { return commentLength; } }
         public int LabelCommentLength { get { return labelCommentLength; } }
 
+        // use only to fix wrong values, please
+        public void FixDateTime(DateTime fixedTime)
+        {
+            dateTime = fixedTime;
+        }
+
         public static Action PeekAction(BufferReader reader)
         {
             int saveOffset = reader.Offset;

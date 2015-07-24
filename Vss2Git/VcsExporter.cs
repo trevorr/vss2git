@@ -14,6 +14,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -27,16 +28,18 @@ using Hpdi.VssLogicalLib;
 namespace Hpdi.Vss2Git
 {
     /// <summary>
-    /// Replays and commits changesets into a new Git repository.
+    /// Replays and commits changesets into a new git or svn repository.
     /// </summary>
     /// <author>Trevor Robinson</author>
-    class GitExporter : Worker
+    class VcsExporter : Worker
     {
         private const string DefaultComment = "Vss2Git";
 
         private readonly VssDatabase database;
         private readonly RevisionAnalyzer revisionAnalyzer;
         private readonly ChangesetBuilder changesetBuilder;
+        private readonly IVcsWrapper vcsWrapper;
+        private readonly IDictionary<string, string> emailDictionary;
         private readonly StreamCopier streamCopier = new StreamCopier();
         private readonly HashSet<string> tagsUsed = new HashSet<string>();
 
@@ -47,6 +50,13 @@ namespace Hpdi.Vss2Git
             set { emailDomain = value; }
         }
 
+        private bool resetRepo = true;
+        public bool ResetRepo
+        {
+            get { return resetRepo; }
+            set { resetRepo = value; }
+        }
+
         private Encoding commitEncoding = Encoding.UTF8;
         public Encoding CommitEncoding
         {
@@ -54,30 +64,26 @@ namespace Hpdi.Vss2Git
             set { commitEncoding = value; }
         }
 
-        private bool forceAnnotatedTags = true;
-        public bool ForceAnnotatedTags
-        {
-            get { return forceAnnotatedTags; }
-            set { forceAnnotatedTags = value; }
-        }
-
-        public GitExporter(WorkQueue workQueue, Logger logger,
-            RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder)
+        public VcsExporter(WorkQueue workQueue, Logger logger,
+            RevisionAnalyzer revisionAnalyzer, ChangesetBuilder changesetBuilder,
+            IVcsWrapper vcsWrapper, IDictionary<string, string> emailDictionary)
             : base(workQueue, logger)
         {
             this.database = revisionAnalyzer.Database;
             this.revisionAnalyzer = revisionAnalyzer;
             this.changesetBuilder = changesetBuilder;
+            this.vcsWrapper = vcsWrapper;
+            this.emailDictionary = emailDictionary;
         }
 
-        public void ExportToGit(string repoPath)
+        public void ExportToVcs(string repoPath)
         {
             workQueue.AddLast(delegate(object work)
             {
                 var stopwatch = Stopwatch.StartNew();
 
                 logger.WriteSectionSeparator();
-                LogStatus(work, "Initializing Git repository");
+                LogStatus(work, "Initializing repository");
 
                 // create repository directory if it does not exist
                 if (!Directory.Exists(repoPath))
@@ -85,12 +91,11 @@ namespace Hpdi.Vss2Git
                     Directory.CreateDirectory(repoPath);
                 }
 
-                var git = new GitWrapper(repoPath, logger);
-                git.CommitEncoding = commitEncoding;
+                string vcs = vcsWrapper.GetVcs();
 
-                while (!git.FindExecutable())
+                while (!vcsWrapper.FindExecutable())
                 {
-                    var button = MessageBox.Show("Git not found in PATH. " +
+                    var button = MessageBox.Show(vcs + " not found in PATH. " +
                         "If you need to modify your PATH variable, please " +
                         "restart the program for the changes to take effect.",
                         "Error", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
@@ -101,49 +106,89 @@ namespace Hpdi.Vss2Git
                     }
                 }
 
-                if (!RetryCancel(delegate { git.Init(); }))
+                if (!RetryCancel(delegate { vcsWrapper.Init(resetRepo); }))
                 {
                     return;
                 }
 
-                if (commitEncoding.WebName != "utf-8")
+                AbortRetryIgnore(delegate
                 {
-                    AbortRetryIgnore(delegate
-                    {
-                        git.SetConfig("i18n.commitencoding", commitEncoding.WebName);
-                    });
-                }
+                    vcsWrapper.Configure();
+                });
 
                 var pathMapper = new VssPathMapper();
 
                 // create mappings for root projects
                 foreach (var rootProject in revisionAnalyzer.RootProjects)
                 {
-                    var rootPath = VssPathMapper.GetWorkingPath(repoPath, rootProject.Path);
+                    // root must be repo path here - the path mapper uses paths relative to this one
+                    var rootPath = repoPath;
                     pathMapper.SetProjectPath(rootProject.PhysicalName, rootPath, rootProject.Path);
                 }
 
-                // replay each changeset
-                var changesetId = 1;
                 var changesets = changesetBuilder.Changesets;
+
+                // create a log of all MoveFrom and MoveTo actions
+                logger.WriteSectionSeparator();
+                logger.WriteLine("List of Move Operations");
+                logger.WriteSectionSeparator();
+
+                int changeSetNo = 0;
+                int revisionNo = 0;
+                foreach (var changeset in changesets)
+                {
+                    foreach (var revision in changeset.Revisions)
+                    {
+                        var actionType = revision.Action.Type;
+                        VssItemName target = null;
+                        var namedAction = revision.Action as VssNamedAction;
+                        if (namedAction != null)
+                        {
+                            target = namedAction.Name;
+                        }
+
+                        switch (actionType)
+                        {
+                            case VssActionType.MoveFrom:
+                                var moveFromAction = (VssMoveFromAction)revision.Action;
+                                logger.WriteLine("{3}-{4}-{0}: MoveFrom {1} to {2}",
+                                    revision.Item, moveFromAction.OriginalProject, target, changeSetNo, revisionNo);
+                                break;
+                            case VssActionType.MoveTo:
+                                var moveToAction = (VssMoveToAction)revision.Action;
+                                logger.WriteLine("{3}-{4}-{0}: MoveTo {1} from {2}",
+                                    revision.Item, moveToAction.NewProject, target, changeSetNo, revisionNo);
+                                break;
+                        }
+                        revisionNo++;
+                    }
+                    changeSetNo++;
+                }
+
+                // replay each changeset
+                logger.WriteSectionSeparator();
+                logger.WriteLine("Replaying Changesets");
+
+                var changesetId = 1;
                 var commitCount = 0;
                 var tagCount = 0;
                 var replayStopwatch = new Stopwatch();
                 var labels = new LinkedList<Revision>();
                 tagsUsed.Clear();
+
                 foreach (var changeset in changesets)
                 {
                     var changesetDesc = string.Format(CultureInfo.InvariantCulture,
                         "changeset {0} from {1}", changesetId, changeset.DateTime);
 
                     // replay each revision in changeset
+                    logger.WriteSectionSeparator();
                     LogStatus(work, "Replaying " + changesetDesc);
                     labels.Clear();
                     replayStopwatch.Start();
-                    bool needCommit;
                     try
                     {
-                        needCommit = ReplayChangeset(pathMapper, changeset, git, labels);
+                        ReplayChangeset(pathMapper, changeset, labels);
                     }
                     finally
                     {
@@ -156,10 +201,10 @@ namespace Hpdi.Vss2Git
                     }
 
                     // commit changes
-                    if (needCommit)
+                    if (vcsWrapper.NeedsCommit())
                     {
                         LogStatus(work, "Committing " + changesetDesc);
-                        if (CommitChangeset(git, changeset))
+                        if (CommitChangeset(changeset))
                         {
                             ++commitCount;
                         }
@@ -195,10 +240,9 @@ namespace Hpdi.Vss2Git
                                 }
                                 LogStatus(work, tagMessage);
 
-                                // annotated tags require (and are implied by) a tag message;
-                                // tools like Mercurial's git converter only import annotated tags
+                                // tags always get a tag message;
                                 var tagComment = label.Comment;
-                                if (string.IsNullOrEmpty(tagComment) && forceAnnotatedTags)
+                                if (string.IsNullOrEmpty(tagComment))
                                 {
                                     // use the original VSS label as the tag message if none was provided
                                     tagComment = labelName;
@@ -207,7 +251,7 @@ namespace Hpdi.Vss2Git
                                 if (AbortRetryIgnore(
                                     delegate
                                     {
-                                        git.Tag(tagName, label.User, GetEmail(label.User),
+                                        vcsWrapper.Tag(tagName, label.User, GetEmail(label.User),
                                             tagComment, label.DateTime);
                                     }))
                                 {
@@ -223,18 +267,17 @@ namespace Hpdi.Vss2Git
                 stopwatch.Stop();
 
                 logger.WriteSectionSeparator();
-                logger.WriteLine("Git export complete in {0:HH:mm:ss}", new DateTime(stopwatch.ElapsedTicks));
+                logger.WriteLine(vcs + " export complete in {0:HH:mm:ss}", new DateTime(stopwatch.ElapsedTicks));
                 logger.WriteLine("Replay time: {0:HH:mm:ss}", new DateTime(replayStopwatch.ElapsedTicks));
-                logger.WriteLine("Git time: {0:HH:mm:ss}", new DateTime(git.ElapsedTime.Ticks));
-                logger.WriteLine("Git commits: {0}", commitCount);
-                logger.WriteLine("Git tags: {0}", tagCount);
+                logger.WriteLine(vcs + " time: {0:HH:mm:ss}", new DateTime(vcsWrapper.ElapsedTime().Ticks));
+                logger.WriteLine(vcs + " commits: {0}", commitCount);
+                logger.WriteLine(vcs + " tags: {0}", tagCount);
             });
         }
 
-        private bool ReplayChangeset(VssPathMapper pathMapper, Changeset changeset,
-            GitWrapper git, LinkedList<Revision> labels)
+        private void ReplayChangeset(VssPathMapper pathMapper, Changeset changeset,
+            LinkedList<Revision> labels)
         {
-            var needCommit = false;
             foreach (Revision revision in changeset.Revisions)
             {
                 if (workQueue.IsAborting)
@@ -244,16 +287,14 @@ namespace Hpdi.Vss2Git
 
                 AbortRetryIgnore(delegate
                 {
-                    needCommit |= ReplayRevision(pathMapper, revision, git, labels);
+                    ReplayRevision(pathMapper, revision, labels);
                 });
             }
-            return needCommit;
         }
 
-        private bool ReplayRevision(VssPathMapper pathMapper, Revision revision,
-            GitWrapper git, LinkedList<Revision> labels)
+        private void ReplayRevision(VssPathMapper pathMapper, Revision revision,
+            LinkedList<Revision> labels)
         {
-            var needCommit = false;
             var actionType = revision.Action.Type;
             if (revision.Item.IsProject)
             {
@@ -323,13 +364,11 @@ namespace Hpdi.Vss2Git
                                     {
                                         if (((VssProjectInfo)itemInfo).ContainsFiles())
                                         {
-                                            git.Remove(targetPath, true);
-                                            needCommit = true;
+                                            vcsWrapper.RemoveDir(targetPath, true);
                                         }
                                         else
                                         {
-                                            // git doesn't care about directories with no files
-                                            Directory.Delete(targetPath, true);
+                                            vcsWrapper.RemoveEmptyDir(targetPath);
                                         }
                                     }
                                 }
@@ -347,8 +386,7 @@ namespace Hpdi.Vss2Git
                                         }
                                         else
                                         {
-                                            File.Delete(targetPath);
-                                            needCommit = true;
+                                            vcsWrapper.RemoveFile(targetPath);
                                         }
                                     }
                                 }
@@ -371,13 +409,11 @@ namespace Hpdi.Vss2Git
                                     var projectInfo = itemInfo as VssProjectInfo;
                                     if (projectInfo == null || projectInfo.ContainsFiles())
                                     {
-                                        CaseSensitiveRename(sourcePath, targetPath, git.Move);
-                                        needCommit = true;
+                                        CaseSensitiveRename(sourcePath, targetPath, vcsWrapper.Move);
                                     }
                                     else
                                     {
-                                        // git doesn't care about directories with no files
-                                        CaseSensitiveRename(sourcePath, targetPath, Directory.Move);
+                                        CaseSensitiveRename(sourcePath, targetPath, vcsWrapper.MoveEmptyDir);
                                     }
                                 }
                                 else
@@ -396,29 +432,44 @@ namespace Hpdi.Vss2Git
                             var moveFromAction = (VssMoveFromAction)revision.Action;
                             logger.WriteLine("{0}: Move from {1} to {2}",
                                 projectDesc, moveFromAction.OriginalProject, targetPath ?? target.LogicalName);
-                            var sourcePath = pathMapper.GetProjectPath(target.PhysicalName);
-                            var projectInfo = pathMapper.MoveProjectFrom(
-                                project, target, moveFromAction.OriginalProject);
-                            if (targetPath != null && !projectInfo.Destroyed)
+
+                            var isInside = pathMapper.IsInRoot(moveFromAction.OriginalProject);
+
+                            if (isInside)
                             {
+                                // MoveFrom -> inside scope: handle actual move in VCS
+                                logger.WriteLine("start MoveFrom -> inside " + moveFromAction.OriginalProject + " (move in VCS)");
+
+                                var sourcePath = pathMapper.GetProjectPath(target.PhysicalName);
+                                if (sourcePath != null && sourcePath.Equals(targetPath))
+                                {
+                                    logger.WriteLine("***** warning: move with source path equal to target path " + sourcePath);
+                                }
+                                itemInfo = pathMapper.MoveProjectFrom(
+                                    project, target, moveFromAction.OriginalProject);
+
                                 if (sourcePath != null && Directory.Exists(sourcePath))
                                 {
-                                    if (projectInfo.ContainsFiles())
+                                    if (((VssProjectInfo)itemInfo).ContainsFiles())
                                     {
-                                        git.Move(sourcePath, targetPath);
-                                        needCommit = true;
+                                        vcsWrapper.Move(sourcePath, targetPath);
                                     }
                                     else
                                     {
-                                        // git doesn't care about directories with no files
-                                        Directory.Move(sourcePath, targetPath);
+                                        vcsWrapper.MoveEmptyDir(sourcePath, targetPath);
                                     }
                                 }
                                 else
                                 {
-                                    // project was moved from a now-destroyed project
-                                    writeProject = true;
+                                    logger.WriteLine("***** warning: inside move with non existing source " + moveFromAction.OriginalProject);
                                 }
+                            }
+                            else
+                            {
+                                // MoveFrom -> outside scope: recover
+                                logger.WriteLine("start MoveFrom -> outside " + moveFromAction.OriginalProject + " (recover)");
+                                itemInfo = pathMapper.RecoverItem(project, target);
+                                isAddAction = true;
                             }
                         }
                         break;
@@ -429,12 +480,37 @@ namespace Hpdi.Vss2Git
                             var moveToAction = (VssMoveToAction)revision.Action;
                             logger.WriteLine("{0}: Move to {1} from {2}",
                                 projectDesc, moveToAction.NewProject, targetPath ?? target.LogicalName);
-                            var projectInfo = pathMapper.MoveProjectTo(
-                                project, target, moveToAction.NewProject);
-                            if (projectInfo.Destroyed && targetPath != null && Directory.Exists(targetPath))
+
+                            var isInside = pathMapper.IsInRoot(moveToAction.NewProject);
+                            if (isInside)
                             {
-                                // project was moved to a now-destroyed project; remove empty directory
-                                Directory.Delete(targetPath, true);
+                                // MoveTo -> inside scope: do nothing - paired with corresponding MoveFrom that handles actual move
+                                logger.WriteLine("start MoveTo -> inside " + moveToAction.NewProject + " (do nothing)");
+                            }
+                            else
+                            {
+                                // MoveTo -> outside scope: delete - no matching MoveFrom available
+                                logger.WriteLine("start MoveTo -> outside " + moveToAction.NewProject + " (delete)");
+
+                                itemInfo = pathMapper.DeleteItem(project, target);
+                                if (targetPath != null && target.IsProject)
+                                {
+                                    logger.WriteLine("MoveTo delete");
+                                    // project was moved to a now-destroyed project; remove the directory
+                                    if (((VssProjectInfo)itemInfo).ContainsFiles())
+                                    {
+                                        vcsWrapper.RemoveDir(targetPath, true);
+                                    }
+                                    else
+                                    {
+                                        vcsWrapper.RemoveEmptyDir(targetPath);
+                                    }
+                                    if (Directory.Exists(targetPath))
+                                    {
+                                        Directory.Delete(targetPath, true);
+                                    }
+                                    logger.WriteLine("MoveTo delete (done)");
+                                }
                             }
                         }
                         break;
@@ -498,7 +574,6 @@ namespace Hpdi.Vss2Git
                         }
                         else if (target.IsProject)
                         {
-                            Directory.CreateDirectory(targetPath);
                             writeProject = true;
                         }
                         else
@@ -509,6 +584,7 @@ namespace Hpdi.Vss2Git
 
                     if (writeProject && pathMapper.IsProjectRooted(target.PhysicalName))
                     {
+                        Directory.CreateDirectory(targetPath);
                         // create all contained subdirectories
                         foreach (var projectInfo in pathMapper.GetAllProjects(target.PhysicalName))
                         {
@@ -517,15 +593,12 @@ namespace Hpdi.Vss2Git
                             Directory.CreateDirectory(projectInfo.GetPath());
                         }
 
+                        vcsWrapper.AddDir(targetPath);
                         // write current rev of all contained files
                         foreach (var fileInfo in pathMapper.GetAllFiles(target.PhysicalName))
                         {
-                            if (WriteRevision(pathMapper, actionType, fileInfo.PhysicalName,
-                                fileInfo.Version, target.PhysicalName, git))
-                            {
-                                // one or more files were written
-                                needCommit = true;
-                            }
+                            WriteRevision(pathMapper, actionType, fileInfo.PhysicalName,
+                                fileInfo.Version, target.PhysicalName);
                         }
                     }
                     else if (writeFile)
@@ -534,9 +607,8 @@ namespace Hpdi.Vss2Git
                         int version = pathMapper.GetFileVersion(target.PhysicalName);
                         if (WriteRevisionTo(target.PhysicalName, version, targetPath))
                         {
-                            // add file explicitly, so it is visible to subsequent git operations
-                            git.Add(targetPath);
-                            needCommit = true;
+                            // add file explicitly, so it is visible to subsequent vcs operations
+                            vcsWrapper.Add(targetPath);
                         }
                     }
                 }
@@ -555,19 +627,18 @@ namespace Hpdi.Vss2Git
 
                 // write current rev to all sharing projects
                 WriteRevision(pathMapper, actionType, target.PhysicalName,
-                    revision.Version, null, git);
-                needCommit = true;
+                    revision.Version, null);
+                vcsWrapper.SetNeedsCommit();
             }
-            return needCommit;
         }
 
-        private bool CommitChangeset(GitWrapper git, Changeset changeset)
+        private bool CommitChangeset(Changeset changeset)
         {
             var result = false;
             AbortRetryIgnore(delegate
             {
-                result = git.AddAll() &&
-                    git.Commit(changeset.User, GetEmail(changeset.User),
+                result = vcsWrapper.AddAll() &&
+                    vcsWrapper.Commit(changeset.User, GetEmail(changeset.User),
                     changeset.Comment ?? DefaultComment, changeset.DateTime);
             });
             return result;
@@ -620,17 +691,23 @@ namespace Hpdi.Vss2Git
 
         private string GetEmail(string user)
         {
-            // TODO: user-defined mapping of user names to email addresses
-            return user.ToLower().Replace(' ', '.') + "@" + emailDomain;
+            // keys to the dictionary: user name in lower case, blanks replaced by dots
+            user = user.ToLower().Replace(' ', '.');
+            if (emailDictionary != null && emailDictionary.ContainsKey(user))
+            {
+                return emailDictionary[user];
+            }
+            // if we can't find the user in the dictionary, we return an default email
+            return user + "@" + emailDomain;
         }
 
         private string GetTagFromLabel(string label)
         {
-            // git tag names must be valid filenames, so replace sequences of
+            // vcs tag names must be valid filenames, so replace sequences of
             // invalid characters with an underscore
             var baseTag = Regex.Replace(label, "[^A-Za-z0-9_-]+", "_");
 
-            // git tags are global, whereas VSS tags are local, so ensure
+            // vcs tags are global, whereas VSS tags are local, so ensure
             // global uniqueness by appending a number; since the file system
             // may be case-insensitive, ignore case when hashing tags
             var tag = baseTag;
@@ -642,22 +719,19 @@ namespace Hpdi.Vss2Git
             return tag;
         }
 
-        private bool WriteRevision(VssPathMapper pathMapper, VssActionType actionType,
-            string physicalName, int version, string underProject, GitWrapper git)
+        private void WriteRevision(VssPathMapper pathMapper, VssActionType actionType,
+            string physicalName, int version, string underProject)
         {
-            var needCommit = false;
             var paths = pathMapper.GetFilePaths(physicalName, underProject);
             foreach (string path in paths)
             {
                 logger.WriteLine("{0}: {1} revision {2}", path, actionType, version);
                 if (WriteRevisionTo(physicalName, version, path))
                 {
-                    // add file explicitly, so it is visible to subsequent git operations
-                    git.Add(path);
-                    needCommit = true;
+                    // add file explicitly, so it is visible to subsequent vcs operations
+                    vcsWrapper.Add(path);
                 }
             }
-            return needCommit;
         }
 
         private bool WriteRevisionTo(string physical, int version, string destPath)

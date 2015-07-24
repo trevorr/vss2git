@@ -64,6 +64,12 @@ namespace Hpdi.VssLogicalLib
             get { return comment != null ? comment.Comment : null; }
         }
 
+        // use only to fix wrong values, please
+        public void FixDateTime(DateTime fixedTime)
+        {
+            revision.FixDateTime(fixedTime);
+        }
+
         internal VssRevision(VssItem item, RevisionRecord revision, CommentRecord comment)
         {
             this.item = item;

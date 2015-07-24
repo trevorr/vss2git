@@ -66,6 +66,7 @@ namespace Hpdi.Vss2Git
 
                 var stopwatch = Stopwatch.StartNew();
                 var pendingChangesByUser = new Dictionary<string, Changeset>();
+                var hasDelete = false;
                 foreach (var dateEntry in revisionAnalyzer.SortedRevisions)
                 {
                     var dateTime = dateEntry.Key;
@@ -130,6 +131,18 @@ namespace Hpdi.Vss2Git
                                     targetFile);
                                 flush = true;
                             }
+                            else if (hasDelete && actionType == VssActionType.Rename)
+                            {
+                                var renameAction = revision.Action as VssRenameAction;
+                                if (renameAction != null && renameAction.Name.IsProject)
+                                {
+                                    // split the change set if a rename of a directory follows a delete
+                                    // otherwise a git error occurs
+                                    logger.WriteLine("NOTE: Splitting changeset due to rename after delete in {0}:",
+                                        targetFile);
+                                    flush = true;
+                                }
+                            }
 
                             if (flush)
                             {
@@ -139,6 +152,7 @@ namespace Hpdi.Vss2Git
                                     flushedUsers = new LinkedList<string>();
                                 }
                                 flushedUsers.AddLast(user);
+                                hasDelete = false;
                             }
                             else if (user == pendingUser)
                             {
@@ -166,6 +180,7 @@ namespace Hpdi.Vss2Git
 
                         // add the revision to the change
                         pendingChange.Revisions.AddLast(revision);
+                        hasDelete |= actionType == VssActionType.Delete || actionType == VssActionType.Destroy;
 
                         // track target files in changeset to detect conflicting actions
                         if (!nonconflicting)

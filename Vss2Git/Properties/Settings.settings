@@ -11,7 +11,7 @@
     <Setting Name="VssExcludePaths" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="GitDirectory" Type="System.String" Scope="User">
+    <Setting Name="OutDirectory" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="DefaultEmailDomain" Type="System.String" Scope="User">
@@ -31,6 +31,39 @@
     </Setting>
     <Setting Name="ForceAnnotatedTags" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="VcsType" Type="System.String" Scope="User">
+      <Value Profile="(Default)">git</Value>
+    </Setting>
+    <Setting Name="SvnRepo" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="SvnUser" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="SvnPassword" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="SvnStandardLayout" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="SvnTrunk" Type="System.String" Scope="User">
+      <Value Profile="(Default)">trunk</Value>
+    </Setting>
+    <Setting Name="SvnTags" Type="System.String" Scope="User">
+      <Value Profile="(Default)">tags</Value>
+    </Setting>
+    <Setting Name="SvnBranches" Type="System.String" Scope="User">
+      <Value Profile="(Default)">branches</Value>
+    </Setting>
+    <Setting Name="ResetRepo" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="SvnProjectPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="LastSettingsFile" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
   </Settings>
 </SettingsFile>
