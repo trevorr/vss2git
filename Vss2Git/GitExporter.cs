@@ -39,6 +39,7 @@ namespace Hpdi.Vss2Git
         private readonly ChangesetBuilder changesetBuilder;
         private readonly StreamCopier streamCopier = new StreamCopier();
         private readonly HashSet<string> tagsUsed = new HashSet<string>();
+        private bool ignoreErrors = false;
 
         private string emailDomain = "localhost";
         public string EmailDomain
@@ -59,6 +60,12 @@ namespace Hpdi.Vss2Git
         {
             get { return forceAnnotatedTags; }
             set { forceAnnotatedTags = value; }
+        }
+
+        public bool IgnoreErrors
+        {
+            get { return ignoreErrors; }
+            set { ignoreErrors = value; }
         }
 
         public GitExporter(WorkQueue workQueue, Logger logger,
@@ -598,6 +605,12 @@ namespace Hpdi.Vss2Git
                     var message = LogException(e);
 
                     message += "\nSee log file for more information.";
+
+                    if (ignoreErrors)
+                    {
+                        retry = false;
+                        continue;
+                    }
 
                     var button = MessageBox.Show(message, "Error", buttons, MessageBoxIcon.Error);
                     switch (button)
