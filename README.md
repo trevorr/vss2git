@@ -57,7 +57,7 @@ Admittedly, some potentially interesting features are currently outside the scop
 
 ## Screenshot ##
 
-![http://vss2git.googlecode.com/files/Vss2Git.png](http://vss2git.googlecode.com/files/Vss2Git.png)
+![http://vss2git.googlecode.com/files/Vss2Git.png](https://raw.githubusercontent.com/trevorr/vss2git/master/Vss2Git.png)
 
 ## Resources ##
 
