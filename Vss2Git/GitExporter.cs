@@ -32,7 +32,6 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     class GitExporter : Worker
     {
-        // Empty comment by default
         private const string DefaultComment = "";
 
         private readonly VssDatabase database;
