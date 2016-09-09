@@ -585,7 +585,7 @@ namespace Hpdi.Vss2Git
         {
             if (!projectSpec.StartsWith("$/"))
             {
-                throw new ArgumentException("Project spec must start with $/", "projectSpec");
+                throw new ArgumentException("Project spec must start with $/ but was \"" + projectSpec + "\"", "projectSpec");
             }
 
             foreach (var rootInfo in rootInfos.Values)
