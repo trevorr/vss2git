@@ -8,7 +8,7 @@ The Vss2Git project contains several components:
   * **VssPhysicalLib** is a set of low-level classes for reading the various data files that make up a VSS database.
   * **HashLib** is a generic stateless hashing API that currently provides 16- and 32-bit [CRC](http://en.wikipedia.org/wiki/Cyclic_redundancy_check) generation.
 
-All components are written in C# using the Microsoft [.NET Framework 3.5](http://msdn.microsoft.com/en-us/netframework/default.aspx).
+All components are written in C# using the Microsoft [.NET Framework](https://www.microsoft.com/net).
 
 ## How is it licensed? ##
 
