@@ -65,6 +65,8 @@ namespace Hpdi.Vss2Git
                     encoding.EncodingName, encoding.CodePage, encoding.WebName);
                 logger.WriteLine("Comment transcoding: {0}",
                     transcodeCheckBox.Checked ? "enabled" : "disabled");
+                logger.WriteLine("Ignore errors: {0}",
+                    ignoreErrorsCheckBox.Checked ? "enabled" : "disabled");
 
                 var df = new VssDatabaseFactory(vssDirTextBox.Text);
                 df.Encoding = encoding;
@@ -115,6 +117,7 @@ namespace Hpdi.Vss2Git
                     {
                         gitExporter.CommitEncoding = encoding;
                     }
+                    gitExporter.IgnoreErrors = ignoreErrorsCheckBox.Checked;
                     gitExporter.ExportToGit(outDirTextBox.Text);
                 }
 
