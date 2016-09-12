@@ -2,7 +2,7 @@
 !define PRODUCT_NAME "Vss2Git"
 !define PRODUCT_VERSION "1.0.10"
 !define PRODUCT_PUBLISHER "Trevor Robinson"
-!define PRODUCT_WEB_SITE "http://code.google.com/p/vss2git/"
+!define PRODUCT_WEB_SITE "https://github.com/trevorr/vss2git"
 !define PRODUCT_REGISTRY_KEY "Software\Vss2Git"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\Vss2Git.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
@@ -60,8 +60,10 @@ Function .onInit
   ClearErrors
   ReadRegStr $1 HKLM "SOFTWARE\Microsoft\NET Framework Setup\NDP\v3.5" "InstallPath"
   IfErrors 0 continue
+  ReadRegStr $1 HKLM "SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" "InstallPath"
+  IfErrors 0 continue
   MessageBox MB_YESNO|MB_ICONQUESTION \
-    "Microsoft .NET Framework 3.5 is required but not detected. Continue installation?" IDYES continue
+    "Microsoft .NET Framework 3.5 or later is required but not detected. Continue installation?" IDYES continue
   Abort
 continue:
 FunctionEnd
