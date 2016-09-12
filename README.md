@@ -73,6 +73,14 @@ The following links may be useful to anyone migrating from VSS and/or to Git. If
 
 ## Release Notes ##
 
+**1.0.11 (11 Sep 2016)**
+
+  * Option to ignore Git errors (thanks to David E. Smith)
+  * Allow and preserve empty commit messages (thanks to Maxim Degtyarev)
+  * Fix installer to also detect .NET 4.0 and later
+  * Upgrade project files to Visual Studio 2015
+  * Fix some URLs that still referred to old home on Google Code
+
 **1.0.10 (6 Sep 2010)**
 
 Bug fixes based on patches from Matthias Luescher:
