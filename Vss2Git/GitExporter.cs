@@ -32,14 +32,13 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     class GitExporter : Worker
     {
-        private const string DefaultComment = "";
-
         private readonly VssDatabase database;
         private readonly RevisionAnalyzer revisionAnalyzer;
         private readonly ChangesetBuilder changesetBuilder;
         private readonly StreamCopier streamCopier = new StreamCopier();
         private readonly HashSet<string> tagsUsed = new HashSet<string>();
         private bool ignoreErrors = false;
+        private string defaultComment = "";
 
         private string emailDomain = "localhost";
         public string EmailDomain
@@ -66,6 +65,12 @@ namespace Hpdi.Vss2Git
         {
             get { return ignoreErrors; }
             set { ignoreErrors = value; }
+        }
+
+        public string DefaultComment
+        {
+            get { return defaultComment; }
+            set { defaultComment = value; }
         }
 
         public GitExporter(WorkQueue workQueue, Logger logger,
