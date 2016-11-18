@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
+using System.Threading;
 using Hpdi.VssLogicalLib;
 
 namespace Hpdi.Vss2Git
@@ -46,6 +47,7 @@ namespace Hpdi.Vss2Git
 
         private void goButton_Click(object sender, EventArgs e)
         {
+            bool gitExportWentOK = false;
             try
             {
                 OpenLog(logTextBox.Text);
@@ -118,7 +120,7 @@ namespace Hpdi.Vss2Git
                         gitExporter.CommitEncoding = encoding;
                     }
                     gitExporter.IgnoreErrors = ignoreErrorsCheckBox.Checked;
-                    gitExporter.ExportToGit(outDirTextBox.Text);
+                    gitExportWentOK = gitExporter.ExportToGit(outDirTextBox.Text);
                 }
 
                 workQueue.Idle += delegate
@@ -133,6 +135,11 @@ namespace Hpdi.Vss2Git
             catch (Exception ex)
             {
                 ShowException(ex);
+            }
+            if ((bool)autoExitCheckbox.Checked && gitExportWentOK)
+            {
+                Thread.Sleep(5000);
+                Application.Exit();
             }
         }
 

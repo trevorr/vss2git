@@ -48,6 +48,7 @@
             this.changeLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.timeLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.outputGroupBox = new System.Windows.Forms.GroupBox();
+            this.ignoreErrorsCheckBox = new System.Windows.Forms.CheckBox();
             this.forceAnnotatedCheckBox = new System.Windows.Forms.CheckBox();
             this.transcodeCheckBox = new System.Windows.Forms.CheckBox();
             this.domainTextBox = new System.Windows.Forms.TextBox();
@@ -64,7 +65,7 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.anyCommentUpDown = new System.Windows.Forms.NumericUpDown();
-            this.ignoreErrorsCheckBox = new System.Windows.Forms.CheckBox();
+            this.autoExitCheckbox = new System.Windows.Forms.CheckBox();
             this.vssGroupBox.SuspendLayout();
             this.statusStrip.SuspendLayout();
             this.outputGroupBox.SuspendLayout();
@@ -247,6 +248,17 @@
             this.outputGroupBox.TabStop = false;
             this.outputGroupBox.Text = "Output Settings";
             // 
+            // ignoreErrorsCheckBox
+            // 
+            this.ignoreErrorsCheckBox.AutoSize = true;
+            this.ignoreErrorsCheckBox.Location = new System.Drawing.Point(422, 97);
+            this.ignoreErrorsCheckBox.Name = "ignoreErrorsCheckBox";
+            this.ignoreErrorsCheckBox.RightToLeft = System.Windows.Forms.RightToLeft.No;
+            this.ignoreErrorsCheckBox.Size = new System.Drawing.Size(101, 17);
+            this.ignoreErrorsCheckBox.TabIndex = 8;
+            this.ignoreErrorsCheckBox.Text = "Ignore Git errors";
+            this.ignoreErrorsCheckBox.UseVisualStyleBackColor = true;
+            // 
             // forceAnnotatedCheckBox
             // 
             this.forceAnnotatedCheckBox.AutoSize = true;
@@ -411,17 +423,16 @@
             this.anyCommentUpDown.Name = "anyCommentUpDown";
             this.anyCommentUpDown.Size = new System.Drawing.Size(54, 20);
             this.anyCommentUpDown.TabIndex = 1;
-            //
-            // ignoreErrorsCheckBox
-            //
-            this.ignoreErrorsCheckBox.AutoSize = true;
-            this.ignoreErrorsCheckBox.Location = new System.Drawing.Point(422, 97);
-            this.ignoreErrorsCheckBox.Name = "ignoreErrorsCheckBox";
-            this.ignoreErrorsCheckBox.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.ignoreErrorsCheckBox.Size = new System.Drawing.Size(101, 17);
-            this.ignoreErrorsCheckBox.TabIndex = 8;
-            this.ignoreErrorsCheckBox.Text = "Ignore Git errors";
-            this.ignoreErrorsCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // autoExitCheckbox
+            // 
+            this.autoExitCheckbox.AutoSize = true;
+            this.autoExitCheckbox.Location = new System.Drawing.Point(21, 354);
+            this.autoExitCheckbox.Name = "autoExitCheckbox";
+            this.autoExitCheckbox.Size = new System.Drawing.Size(140, 17);
+            this.autoExitCheckbox.TabIndex = 6;
+            this.autoExitCheckbox.Text = "Exit on successfull finish";
+            this.autoExitCheckbox.UseVisualStyleBackColor = false;
             // 
             // MainForm
             // 
@@ -430,6 +441,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.cancelButton;
             this.ClientSize = new System.Drawing.Size(584, 402);
+            this.Controls.Add(this.autoExitCheckbox);
             this.Controls.Add(this.changesetGroupBox);
             this.Controls.Add(this.cancelButton);
             this.Controls.Add(this.outputGroupBox);
@@ -441,8 +453,8 @@
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "VSS2Git";
-            this.Load += new System.EventHandler(this.MainForm_Load);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
+            this.Load += new System.EventHandler(this.MainForm_Load);
             this.vssGroupBox.ResumeLayout(false);
             this.vssGroupBox.PerformLayout();
             this.statusStrip.ResumeLayout(false);
@@ -495,6 +507,7 @@
         private System.Windows.Forms.CheckBox transcodeCheckBox;
         private System.Windows.Forms.CheckBox forceAnnotatedCheckBox;
         private System.Windows.Forms.CheckBox ignoreErrorsCheckBox;
+        private System.Windows.Forms.CheckBox autoExitCheckbox;
     }
 }
 

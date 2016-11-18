@@ -77,8 +77,9 @@ namespace Hpdi.Vss2Git
             this.changesetBuilder = changesetBuilder;
         }
 
-        public void ExportToGit(string repoPath)
+        public bool ExportToGit(string repoPath)
         {
+            bool prematureStopped = true;
             workQueue.AddLast(delegate(object work)
             {
                 var stopwatch = Stopwatch.StartNew();
@@ -235,7 +236,11 @@ namespace Hpdi.Vss2Git
                 logger.WriteLine("Git time: {0:HH:mm:ss}", new DateTime(git.ElapsedTime.Ticks));
                 logger.WriteLine("Git commits: {0}", commitCount);
                 logger.WriteLine("Git tags: {0}", tagCount);
-            });
+                prematureStopped = false;
+            }
+            );
+
+            return !prematureStopped;
         }
 
         private bool ReplayChangeset(VssPathMapper pathMapper, Changeset changeset,
