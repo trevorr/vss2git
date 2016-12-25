@@ -153,9 +153,9 @@
             this.vssProjectLabel.AutoSize = true;
             this.vssProjectLabel.Location = new System.Drawing.Point(6, 48);
             this.vssProjectLabel.Name = "vssProjectLabel";
-            this.vssProjectLabel.Size = new System.Drawing.Size(40, 13);
+            this.vssProjectLabel.Size = new System.Drawing.Size(51, 13);
             this.vssProjectLabel.TabIndex = 2;
-            this.vssProjectLabel.Text = "Project";
+            this.vssProjectLabel.Text = "Project(s)";
             // 
             // vssDirLabel
             // 
