@@ -132,6 +132,8 @@ namespace Hpdi.Vss2Git
             }
             catch (Exception ex)
             {
+                logger.Dispose();
+                logger = Logger.Null;
                 ShowException(ex);
             }
         }
