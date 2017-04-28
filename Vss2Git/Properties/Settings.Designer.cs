@@ -142,5 +142,17 @@ namespace Hpdi.Vss2Git.Properties {
                 this["ForceAnnotatedTags"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string DefaultComment {
+            get {
+                return ((string)(this["DefaultComment"]));
+            }
+            set {
+                this["DefaultComment"] = value;
+            }
+        }
     }
 }
