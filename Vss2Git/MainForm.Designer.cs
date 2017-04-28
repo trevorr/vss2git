@@ -267,7 +267,7 @@
             this.commentLabel.Name = "commentLabel";
             this.commentLabel.Size = new System.Drawing.Size(88, 13);
             this.commentLabel.TabIndex = 8;
-            this.commentLabel.Text = "Default Comment";
+            this.commentLabel.Text = "Default comment";
             // 
             // forceAnnotatedCheckBox
             // 
