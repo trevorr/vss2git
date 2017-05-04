@@ -48,6 +48,16 @@ namespace Hpdi.Vss2Git
         {
             try
             {
+                var git = new GitWrapper(string.Empty, null);
+                while (!git.FindExecutable())
+                {
+                    var button = MessageBox.Show("Git not found in PATH. " +
+                        "If you need to modify your PATH variable, please " +
+                        "restart the program for the changes to take effect.",
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
                 OpenLog(logTextBox.Text);
 
                 logger.WriteLine("VSS2Git version {0}", Assembly.GetExecutingAssembly().GetName().Version);
