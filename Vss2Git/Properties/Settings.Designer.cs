@@ -154,5 +154,17 @@ namespace Hpdi.Vss2Git.Properties {
                 this["DefaultComment"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("emailmap.xml")]
+        public string EmailMapFile {
+            get {
+                return ((string)(this["EmailMapFile"]));
+            }
+            set {
+                this["EmailMapFile"] = value;
+            }
+        }
     }
 }

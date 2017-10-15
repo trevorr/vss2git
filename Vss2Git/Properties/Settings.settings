@@ -35,5 +35,8 @@
     <Setting Name="DefaultComment" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
+    <Setting Name="EmailMapFile" Type="System.String" Scope="User">
+      <Value Profile="(Default)">emailmap.xml</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
