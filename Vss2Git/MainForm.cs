@@ -125,6 +125,12 @@ namespace Hpdi.Vss2Git
                     gitExporter.ExportToGit(outDirTextBox.Text);
                 }
 
+                if (cleanVssRemnantsCheckBox.Checked)
+                {
+                    var cleaner = new VssCleaner(workQueue, logger, outDirTextBox.Text, domainTextBox.Text);
+                    cleaner.CleanVssRemnants();
+                }
+
                 workQueue.Idle += delegate
                 {
                     logger.Dispose();

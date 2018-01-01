@@ -231,6 +231,11 @@ namespace Hpdi.Vss2Git
             }
         }
 
+        public void UndoLastCommit()
+        {
+            GitExec("reset --hard HEAD~1");
+        }
+
         public void Tag(string name, string taggerName, string taggerEmail, string comment, DateTime localTime)
         {
             TempFile commentFile;
