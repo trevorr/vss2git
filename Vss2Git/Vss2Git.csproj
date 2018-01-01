@@ -61,6 +61,8 @@
     </Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.XML" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AsyncLineReader.cs" />
@@ -84,6 +86,7 @@
     <Compile Include="RevisionAnalyzer.cs" />
     <Compile Include="SimpleWorkQueue.cs" />
     <Compile Include="Revision.cs" />
+    <Compile Include="VssCleaner.cs" />
     <Compile Include="Worker.cs" />
     <Compile Include="WorkQueue.cs" />
     <Compile Include="MainForm.cs">
@@ -136,6 +139,7 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
