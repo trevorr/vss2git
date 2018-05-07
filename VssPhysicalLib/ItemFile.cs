@@ -80,7 +80,9 @@ namespace Hpdi.VssPhysicalLib
         public VssRecord GetNextRecord(bool skipUnknown)
         {
             if (reader.Offset == this.Header.EofOffset)
+            {
                 return null;
+            }
             return GetNextRecord<VssRecord>(CreateRecord, skipUnknown);
         }
 
@@ -96,7 +98,9 @@ namespace Hpdi.VssPhysicalLib
         public RevisionRecord GetNextRevision(RevisionRecord revision)
         {
             if (reader.Offset == this.Header.EofOffset)
+            {
                 return null;
+            }
             reader.Offset = revision.Header.Offset + revision.Header.Length + RecordHeader.LENGTH;
             return GetNextRecord<RevisionRecord>(CreateRevisionRecord, true);
         }
