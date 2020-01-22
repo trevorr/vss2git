@@ -222,6 +222,7 @@ namespace Hpdi.VssPhysicalLib
                     break;
                 case Action.ArchiveProject:
                 case Action.RestoreProject:
+                case Action.RestoreFile:
                     record = new ArchiveRevisionRecord();
                     break;
                 case Action.CreateProject:

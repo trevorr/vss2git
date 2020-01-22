@@ -49,6 +49,7 @@ namespace Hpdi.VssPhysicalLib
 
         // archive actions
         ArchiveProject = 23,
+        RestoreFile = 24,
         RestoreProject = 25
     }
 
