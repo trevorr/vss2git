@@ -113,6 +113,10 @@ namespace Hpdi.Vss2Git
                     {
                         gitExporter.EmailDomain = domainTextBox.Text;
                     }
+                    if (!string.IsNullOrEmpty(emailMapFileTextBox.Text))
+                    {
+                        gitExporter.EmailMapFile = emailMapFileTextBox.Text;
+                    }
                     if (!string.IsNullOrEmpty(commentTextBox.Text))
                     {
                         gitExporter.DefaultComment = commentTextBox.Text;
@@ -234,6 +238,7 @@ namespace Hpdi.Vss2Git
             excludeTextBox.Text = settings.VssExcludePaths;
             outDirTextBox.Text = settings.GitDirectory;
             domainTextBox.Text = settings.DefaultEmailDomain;
+            emailMapFileTextBox.Text = settings.EmailMapFile;
             commentTextBox.Text = settings.DefaultComment;
             logTextBox.Text = settings.LogFile;
             transcodeCheckBox.Checked = settings.TranscodeComments;
@@ -250,6 +255,7 @@ namespace Hpdi.Vss2Git
             settings.VssExcludePaths = excludeTextBox.Text;
             settings.GitDirectory = outDirTextBox.Text;
             settings.DefaultEmailDomain = domainTextBox.Text;
+            settings.EmailMapFile = emailMapFileTextBox.Text;
             settings.LogFile = logTextBox.Text;
             settings.TranscodeComments = transcodeCheckBox.Checked;
             settings.ForceAnnotatedTags = forceAnnotatedCheckBox.Checked;
