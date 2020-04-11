@@ -201,8 +201,8 @@ namespace Hpdi.Vss2Git
                 stopwatch.Stop();
 
                 logger.WriteSectionSeparator();
-                logger.WriteLine("Found {0} changesets in {1:HH:mm:ss}",
-                    changesets.Count, new DateTime(stopwatch.ElapsedTicks));
+                logger.WriteLine("Found {0} changesets in {1}",
+                    changesets.Count, TimeSpan.FromSeconds(Math.Floor(stopwatch.Elapsed.TotalSeconds)));
             });
         }
 

@@ -174,7 +174,7 @@ namespace Hpdi.Vss2Git
                 stopwatch.Stop();
 
                 logger.WriteSectionSeparator();
-                logger.WriteLine("Analysis complete in {0:HH:mm:ss}", new DateTime(stopwatch.ElapsedTicks));
+                logger.WriteLine("Analysis complete in {0}", TimeSpan.FromSeconds(Math.Floor(stopwatch.Elapsed.TotalSeconds)));
                 logger.WriteLine("Projects: {0} ({1} excluded)", projectCount, excludedProjects);
                 logger.WriteLine("Files: {0} ({1} excluded)", fileCount, excludedFiles);
                 logger.WriteLine("Revisions: {0}", revisionCount);
