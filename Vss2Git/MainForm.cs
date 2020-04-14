@@ -97,6 +97,7 @@ namespace Hpdi.Vss2Git
                 if (!string.IsNullOrEmpty(excludeTextBox.Text))
                 {
                     revisionAnalyzer.ExcludeFiles = excludeTextBox.Text;
+                    revisionAnalyzer.IgnoreSortingErrors = ignoreErrorsCheckBox.Checked;
                 }
                 revisionAnalyzer.AddItem(project);
 

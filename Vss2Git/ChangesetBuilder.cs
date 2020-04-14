@@ -66,128 +66,132 @@ namespace Hpdi.Vss2Git
 
                 var stopwatch = Stopwatch.StartNew();
                 var pendingChangesByUser = new Dictionary<string, Changeset>();
-                foreach (var dateEntry in revisionAnalyzer.SortedRevisions)
+                foreach (var revision in revisionAnalyzer.SortedRevisions)
                 {
-                    var dateTime = dateEntry.Key;
-                    foreach (Revision revision in dateEntry.Value)
+                    // determine target of project revisions
+                    var actionType = revision.Action.Type;
+                    var namedAction = revision.Action as VssNamedAction;
+                    var targetFile = revision.Item.PhysicalName;
+                    if (namedAction != null)
                     {
-                        // determine target of project revisions
-                        var actionType = revision.Action.Type;
-                        var namedAction = revision.Action as VssNamedAction;
-                        var targetFile = revision.Item.PhysicalName;
-                        if (namedAction != null)
+                        targetFile = namedAction.Name.PhysicalName;
+                    }
+
+                    // Create actions are only used to obtain initial item comments;
+                    // items are actually created when added to a project
+                    var creating = (actionType == VssActionType.Create ||
+                                    (actionType == VssActionType.Branch && !revision.Item.IsProject));
+
+                    // Share actions are never conflict (which is important,
+                    // since Share always precedes Branch)
+                    var nonconflicting = creating || (actionType == VssActionType.Share);
+
+                    // look up the pending change for user of this revision
+                    // and flush changes past time threshold
+                    var pendingUser = revision.User;
+                    Changeset pendingChange = null;
+                    LinkedList<string> flushedUsers = null;
+                    foreach (var userEntry in pendingChangesByUser)
+                    {
+                        var user = userEntry.Key;
+                        var change = userEntry.Value;
+
+                        // flush change if file conflict or past time threshold
+                        var flush = false;
+                        var timeDiff = revision.DateTime - change.DateTime;
+                        if (timeDiff < TimeSpan.FromSeconds(0))
                         {
-                            targetFile = namedAction.Name.PhysicalName;
+                            // in the olden days computer clocks were a lot more unreliable;
+                            // if time runs backwards always put it into a separate changeset
+                            logger.WriteLine("NOTE: Time running backwards {0} -> {1}",
+                                change.DateTime, revision.DateTime);
+                            flush = true;
                         }
-
-                        // Create actions are only used to obtain initial item comments;
-                        // items are actually created when added to a project
-                        var creating = (actionType == VssActionType.Create ||
-                            (actionType == VssActionType.Branch && !revision.Item.IsProject));
-
-                        // Share actions are never conflict (which is important,
-                        // since Share always precedes Branch)
-                        var nonconflicting = creating || (actionType == VssActionType.Share);
-
-                        // look up the pending change for user of this revision
-                        // and flush changes past time threshold
-                        var pendingUser = revision.User;
-                        Changeset pendingChange = null;
-                        LinkedList<string> flushedUsers = null;
-                        foreach (var userEntry in pendingChangesByUser)
+                        else if (timeDiff > anyCommentThreshold)
                         {
-                            var user = userEntry.Key;
-                            var change = userEntry.Value;
-
-                            // flush change if file conflict or past time threshold
-                            var flush = false;
-                            var timeDiff = revision.DateTime - change.DateTime;
-                            if (timeDiff > anyCommentThreshold)
+                            if (HasSameComment(revision, change.Revisions.Last.Value))
                             {
-                                if (HasSameComment(revision, change.Revisions.Last.Value))
+                                string message;
+                                if (timeDiff < sameCommentThreshold)
                                 {
-                                    string message;
-                                    if (timeDiff < sameCommentThreshold)
-                                    {
-                                        message = "Using same-comment threshold";
-                                    }
-                                    else
-                                    {
-                                        message = "Same comment but exceeded threshold";
-                                        flush = true;
-                                    }
-                                    logger.WriteLine("NOTE: {0} ({1} second gap):",
-                                        message, timeDiff.TotalSeconds);
+                                    message = "Using same-comment threshold";
                                 }
                                 else
                                 {
+                                    message = "Same comment but exceeded threshold";
                                     flush = true;
                                 }
+                                logger.WriteLine("NOTE: {0} ({1} second gap):",
+                                    message, timeDiff.TotalSeconds);
                             }
-                            else if (!nonconflicting && change.TargetFiles.Contains(targetFile))
+                            else
                             {
-                                logger.WriteLine("NOTE: Splitting changeset due to file conflict on {0}:",
-                                    targetFile);
                                 flush = true;
                             }
+                        }
+                        else if (!nonconflicting && change.TargetFiles.Contains(targetFile))
+                        {
+                            logger.WriteLine("NOTE: Splitting changeset due to file conflict on {0}:",
+                                targetFile);
+                            flush = true;
+                        }
 
-                            if (flush)
+                        if (flush)
+                        {
+                            AddChangeset(change);
+                            if (flushedUsers == null)
                             {
-                                AddChangeset(change);
-                                if (flushedUsers == null)
-                                {
-                                    flushedUsers = new LinkedList<string>();
-                                }
-                                flushedUsers.AddLast(user);
+                                flushedUsers = new LinkedList<string>();
                             }
-                            else if (user == pendingUser)
+                            flushedUsers.AddLast(user);
+                        }
+                        else if (user == pendingUser)
+                        {
+                            pendingChange = change;
+                        }
+                    }
+                    if (flushedUsers != null)
+                    {
+                        foreach (string user in flushedUsers)
+                        {
+                            pendingChangesByUser.Remove(user);
+                        }
+                    }
+
+                    // if no pending change for user, create a new one
+                    if (pendingChange == null)
+                    {
+                        pendingChange = new Changeset();
+                        pendingChange.User = pendingUser;
+                        pendingChangesByUser[pendingUser] = pendingChange;
+                    }
+
+                    // update the time of the change based on the last revision
+                    pendingChange.DateTime = revision.DateTime;
+
+                    // add the revision to the change
+                    pendingChange.Revisions.AddLast(revision);
+
+                    // track target files in changeset to detect conflicting actions
+                    if (!nonconflicting)
+                    {
+                        pendingChange.TargetFiles.Add(targetFile);
+                    }
+
+                    // build up a concatenation of unique revision comments
+                    var revComment = revision.Comment;
+                    if (revComment != null)
+                    {
+                        revComment = revComment.Trim();
+                        if (revComment.Length > 0)
+                        {
+                            if (string.IsNullOrEmpty(pendingChange.Comment))
                             {
-                                pendingChange = change;
+                                pendingChange.Comment = revComment;
                             }
-                        }
-                        if (flushedUsers != null)
-                        {
-                            foreach (string user in flushedUsers)
+                            else if (!pendingChange.Comment.Contains(revComment))
                             {
-                                pendingChangesByUser.Remove(user);
-                            }
-                        }
-
-                        // if no pending change for user, create a new one
-                        if (pendingChange == null)
-                        {
-                            pendingChange = new Changeset();
-                            pendingChange.User = pendingUser;
-                            pendingChangesByUser[pendingUser] = pendingChange;
-                        }
-
-                        // update the time of the change based on the last revision
-                        pendingChange.DateTime = revision.DateTime;
-
-                        // add the revision to the change
-                        pendingChange.Revisions.AddLast(revision);
-
-                        // track target files in changeset to detect conflicting actions
-                        if (!nonconflicting)
-                        {
-                            pendingChange.TargetFiles.Add(targetFile);
-                        }
-
-                        // build up a concatenation of unique revision comments
-                        var revComment = revision.Comment;
-                        if (revComment != null)
-                        {
-                            revComment = revComment.Trim();
-                            if (revComment.Length > 0)
-                            {
-                                if (string.IsNullOrEmpty(pendingChange.Comment))
-                                {
-                                    pendingChange.Comment = revComment;
-                                }
-                                else if (!pendingChange.Comment.Contains(revComment))
-                                {
-                                    pendingChange.Comment += "\n" + revComment;
-                                }
+                                pendingChange.Comment += "\n" + revComment;
                             }
                         }
                     }
