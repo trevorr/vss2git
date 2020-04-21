@@ -321,7 +321,9 @@ namespace Hpdi.Vss2Git
                 createRevisionsByItem[VssDatabase.RootProjectFile].dateTime = DateTime.MinValue;
             }
 
-            // set restore revisions time to the time the item was created
+            // set restore revisions time to the time the item was created;
+            // sadly this may miss some parts of the restore if it takes longer than a second,
+            // but hopefully the constraints applied later on the order will be able to compensate
             foreach (var s in restoreRevisions)
             {
                 var item = ((VssRestoreAction)s.revision.Action).Name.PhysicalName;
@@ -347,8 +349,6 @@ namespace Hpdi.Vss2Git
                     }
                 }
             }
-
-            sortedRevisions.Sort();
         }
 
         private void SortRevisions(bool tolerateErrors)
@@ -368,11 +368,14 @@ namespace Hpdi.Vss2Git
             // (and because traversal order is more reasonable than random order).
 
             FixSortingOrderForRestoreRevisions();
+            sortedRevisions.Sort();
 
             var graph = new OrderingGraph<SortableRevision>(sortedRevisions);
 
             // "restore item" must be done before "create item",
-            // preferably directly before "create item"
+            // preferably directly before "create item";
+            // the project the "restore item" is applied to must be rooted at the time of the restore
+            // (tbd: other operations may be done on not-rooted projects if the project was moved?)
             var restoreRevisions = sortedRevisions
                 .Where(r => r.revision.Action.Type == VssActionType.Restore)
                 .ToList();
@@ -386,6 +389,25 @@ namespace Hpdi.Vss2Git
                 {
                     graph.AddOrderEdge(restoreRevision, createRevisionsByItem[item]);
                     graph.AddBuddyEdge(restoreRevision, createRevisionsByItem[item]);
+
+                    // rooted means the project is already added to a parent project;
+                    // if there are multiple "add project" (is this possible?), we choose the one with smallest traversal number
+                    var project = restoreRevision.revision.Item;
+                    do
+                    {
+                        Debug.Assert(project.IsProject);
+                        var addRevision = sortedRevisions.Where(s =>
+                                s.revision.Action.Type == VssActionType.Add &&
+                                ((VssAddAction) s.revision.Action).Name.PhysicalName == project.PhysicalName)
+                            .OrderBy(s => s.traversalNumber).FirstOrDefault();
+                        Debug.Assert(addRevision != null || project.PhysicalName == VssDatabase.RootProjectFile);
+                        if (addRevision != null)
+                        {
+                            graph.AddOrderEdge(addRevision, restoreRevision);
+                        }
+
+                        project = addRevision?.revision.Item;
+                    } while (project != null);
                 }
             }
 
