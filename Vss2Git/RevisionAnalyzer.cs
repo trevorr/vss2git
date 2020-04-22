@@ -306,51 +306,6 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        private void FixSortingOrderForRestoreRevisions()
-        {
-            var restoreRevisions = sortedRevisions
-                .Where(r => r.revision.Action.Type == VssActionType.Restore)
-                .ToList();
-            var createRevisionsByItem = sortedRevisions
-                .Where(s => s.revision.Action.Type == VssActionType.Create)
-                .ToDictionary(s => s.revision.Item.PhysicalName, s => s);
-
-            // set database creation time so it will be the first revision
-            if (createRevisionsByItem.ContainsKey(VssDatabase.RootProjectFile))
-            {
-                createRevisionsByItem[VssDatabase.RootProjectFile].dateTime = DateTime.MinValue;
-            }
-
-            // set restore revisions time to the time the item was created;
-            // sadly this may miss some parts of the restore if it takes longer than a second,
-            // but hopefully the constraints applied later on the order will be able to compensate
-            foreach (var s in restoreRevisions)
-            {
-                var item = ((VssRestoreAction)s.revision.Action).Name.PhysicalName;
-                if (createRevisionsByItem.ContainsKey(item))
-                {
-                    var newTime = createRevisionsByItem[item].dateTime - TimeSpan.FromTicks(1);
-                    int index = sortedRevisions.IndexOf(s);
-                    int indexStart = index;
-                    while (indexStart > 0 && sortedRevisions[indexStart - 1].IsSameTimeGroup(s))
-                    {
-                        indexStart--;
-                    }
-
-                    int indexStop = index + 1;
-                    while (indexStop < sortedRevisions.Count && sortedRevisions[indexStop].IsSameTimeGroup(s))
-                    {
-                        indexStop++;
-                    }
-
-                    for (int i = indexStart; i < indexStop; i++)
-                    {
-                        sortedRevisions[i].dateTime = newTime;
-                    }
-                }
-            }
-        }
-
         private void SortRevisions(bool tolerateErrors)
         {
             // we must not trust timestamp of revisions, because
@@ -367,28 +322,31 @@ namespace Hpdi.Vss2Git
             // is used as a tertiary sort criteria to achieve a stable sort
             // (and because traversal order is more reasonable than random order).
 
-            FixSortingOrderForRestoreRevisions();
+            // set database creation time so it will be the first revision
+            var createRevisionsByItem = sortedRevisions
+                .Where(s => s.revision.Action.Type == VssActionType.Create)
+                .ToDictionary(s => s.revision.Item.PhysicalName, s => s);
+            if (createRevisionsByItem.ContainsKey(VssDatabase.RootProjectFile))
+            {
+                createRevisionsByItem[VssDatabase.RootProjectFile].dateTime = DateTime.MinValue;
+            }
+
             sortedRevisions.Sort();
 
             var graph = new OrderingGraph<SortableRevision>(sortedRevisions);
 
-            // "restore item" must be done before "create item",
-            // preferably directly before "create item";
+            // "restore item" must be done before "create item";
             // the project the "restore item" is applied to must be rooted at the time of the restore
             // (tbd: other operations may be done on not-rooted projects if the project was moved?)
             var restoreRevisions = sortedRevisions
                 .Where(r => r.revision.Action.Type == VssActionType.Restore)
                 .ToList();
-            var createRevisionsByItem = sortedRevisions
-                .Where(s => s.revision.Action.Type == VssActionType.Create)
-                .ToDictionary(s => s.revision.Item.PhysicalName, s => s);
             foreach (var restoreRevision in restoreRevisions)
             {
                 var item = ((VssRestoreAction) restoreRevision.revision.Action).Name.PhysicalName;
                 if (createRevisionsByItem.ContainsKey(item))
                 {
                     graph.AddOrderEdge(restoreRevision, createRevisionsByItem[item]);
-                    graph.AddBuddyEdge(restoreRevision, createRevisionsByItem[item]);
 
                     // rooted means the project is already added to a parent project;
                     // if there are multiple "add project" (is this possible?), we choose the one with smallest traversal number
@@ -465,21 +423,36 @@ namespace Hpdi.Vss2Git
             // time groups are buddies;
             // buddy groups are transitive, i.e. it is enough to connect consecutive revisions;
             // to handle cases where two users modify the database with the same system time on their computer
-            // we split the sequence by user before testing consecutive revisions
+            // we split the sequence by user before testing consecutive revisions;
+            // since a restore action and accompanying create and add actions have "wrong" time
+            // and may have to be re-ordered independently from each other,
+            // time groups with restore actions are *not* buddies.
             foreach (var userRevisions in sortedRevisions.GroupBy(s => s.revision.User))
             {
-                SortableRevision lastRevision = null;
+                var timeGroups = new List<List<SortableRevision>>();
                 foreach (var revision in userRevisions)
                 {
-                    if (lastRevision != null && lastRevision.IsSameTimeGroup(revision))
-                    {
-                        Debug.Assert(lastRevision.CompareTo(revision) < 0);
+                    Debug.Assert(timeGroups.Count == 0 || timeGroups.Last().Last().CompareTo(revision) < 0);
 
-                        graph.AddBuddyEdge(lastRevision, revision);
+                    if (timeGroups.Count == 0 || !timeGroups.Last().Last().IsSameTimeGroup(revision))
+                    {
+                        timeGroups.Add(new List<SortableRevision>());
                     }
 
-                    lastRevision = revision;
+                    timeGroups.Last().Add(revision);
                 }
+
+                foreach (var timeGroup in timeGroups)
+                {
+                    if (timeGroup.All(s => s.revision.Action.Type != VssActionType.Restore))
+                    {
+                        for (int i = 1; i < timeGroup.Count; i++)
+                        {
+                            graph.AddBuddyEdge(timeGroup[i - 1], timeGroup[i]);
+                        }
+                    }
+                }
+
             }
 
             int nrErrors;
@@ -490,7 +463,7 @@ namespace Hpdi.Vss2Git
             {
                 if (sortedRevisions == advancedSortedRevisions)
                 {
-                    logger.WriteLine("Advanced revision sorting has not changed order.");
+                    logger.WriteLine("Advanced revision sorting has not changed order");
                 }
                 else
                 {
@@ -621,6 +594,11 @@ namespace Hpdi.Vss2Git
                     AddSuccessor(map(pair.Key), pair.Value);
                 }
             }
+
+            public override string ToString()
+            {
+                return vertex.ToString();
+            }
         }
 
         private class Vertex : IComparable<Vertex>
@@ -644,6 +622,16 @@ namespace Hpdi.Vss2Git
             public int CompareTo(Vertex other)
             {
                 return item.CompareTo(other.item);
+            }
+
+            public override string ToString()
+            {
+                return string.Format("<{0}-{1}> <{2}-{3}> {4}",
+                    order.predecessors.Count,
+                    order.successors.Count,
+                    buddies.predecessors.Count,
+                    buddies.successors.Count,
+                    item);
             }
         }
 
@@ -727,76 +715,81 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        private static List<Vertex> GetSortedBuddyGroup(Vertex vertex)
+        private static List<List<Vertex>> GetSortedBuddyGroups(OrderingGraph<TItem> graph)
         {
-            HashSet<Link> isVisited = new HashSet<Link>();
-            VisitInAllDirections(vertex.buddies, isVisited);
-            var buddyGroup = isVisited.Select(l => l.vertex).ToList();
-            buddyGroup.Sort();
-            return buddyGroup;
-        }
+            var buddyGroups = new List<List<Vertex>>();
+            HashSet<Link> isOldVisited = new HashSet<Link>();
+            foreach (var vertex in graph.Vertices)
+            {
+                if (!isOldVisited.Contains(vertex.buddies))
+                {
+                    HashSet<Link> isNewVisited = new HashSet<Link>();
+                    VisitInAllDirections(vertex.buddies, isNewVisited);
+                    isOldVisited.UnionWith(isNewVisited);
 
+                    var buddyGroup = isNewVisited.Select(l => l.vertex).ToList();
+                    buddyGroup.Sort();
+                    buddyGroups.Add(buddyGroup);
+                }
+            }
+
+            return buddyGroups.OrderBy(g => g.First()).ToList();
+        }
 
         private static List<Vertex> SortTopologicalThenByBuddiesThenByItemOrder(OrderingGraph<TItem> graph,
             out int nrErrors)
         {
             nrErrors = 0;
+            if (!graph.Vertices.Any())
+            {
+                return new List<Vertex>();
+            }
 
-            // Approach is similar to Kahn's algorithm
+            // Approach is somewhat inspired by Kahn's algorithm
             // (see https://en.wikipedia.org/wiki/Topological_sort)
             // where we select the next item for result list using
             // the following strategy.
-            // While there are blocked or unblocked items
+            // While there are items left to process
             // 1) Choose n as smallest non-blocked items from current buddy group if one exists
             // 2) if no such n exists, we switch to a new buddy group;
             //    if current buddy group is not empty, increase error count because buddy relation is broken;
             //    for the new current buddy group
-            //    choose first buddy group that is not blocked (i.e. no member has predecessors);
-            //    if all are blocked, choose buddy group of smallest unblocked item;
-            //    if there are no unblocked items, choose buddy group of smallest blocked item.
-            //    Now choose n as smallest non-blocked items from current buddy group if one exists
+            //    choose first buddy group if it is not blocked (i.e. no member has predecessors);
+            //    else choose a buddy group that unblocks first buddy at least partially;
+            //    if this is not possible, try later buddy groups instead of first buddy group;
+            //    if all are blocked, choose first buddy group anyway (which will cause errors).
+            //    Now choose n as smallest non-blocked item from current buddy group if one exists
             //    or else take first item of new buddy group.
             // 3) If n is blocked, increase number of errors because order relation is broken
             //    and remove predecessor edges.
             // 4) Add n to the resulting sorted list.
-            //    Remove n from the list of blocked or unblocked items and from current buddy group.
-            //    Remove successor edges of n from the graph and update sets of blocked and unblocked items.
+            //    Remove n from the current buddy group; remove current buddy group if it is empty.
+            //    Remove successor edges of n from the graph.
 
-            List<Vertex> currentBuddyGroup = null;
+            var buddyGroups = GetSortedBuddyGroups(graph);
+            var buddyGroupOfVertex = new Dictionary<Vertex, List<Vertex>>();
+            buddyGroups.ForEach(g => g.ForEach(v => buddyGroupOfVertex[v] = g));
+
+            List<Vertex> currentBuddyGroup = new List<Vertex>();
             List<Vertex> result = new List<Vertex>();
-            SortedSet<Vertex> blocked = new SortedSet<Vertex>();
-            SortedSet<Vertex> unblocked = new SortedSet<Vertex>();
-            foreach (var vertex in graph.Vertices)
-            {
-                if (vertex.order.HasPredecessors)
-                {
-                    blocked.Add(vertex);
-                }
-                else
-                {
-                    unblocked.Add(vertex);
-                }
-            }
 
-            while (unblocked.Count > 0 || blocked.Count > 0)
+            while (buddyGroups.Count > 0)
             {
                 // 1)
-                var n = currentBuddyGroup?.FirstOrDefault(v => !v.order.HasPredecessors);
+                var n = currentBuddyGroup.FirstOrDefault(v => !v.order.HasPredecessors);
                 // 2)
                 if (n == null)
                 {
-                    if (currentBuddyGroup != null && currentBuddyGroup.Count > 0)
+                    if (currentBuddyGroup.Count > 0)
                     {
                         nrErrors++; // broken buddy relation
                     }
 
+                    // set current buddy group to a good unblocked buddy group
+                    // or if that fails fall back to the first buddy group (which will cause errors)
                     currentBuddyGroup =
-                        unblocked
-                            .Select(v => GetSortedBuddyGroup(v).Except(result).ToList())
-                            .FirstOrDefault(b => b.Count > 0 && b.All(v => v.order.predecessors.All(pair => b.Contains(pair.Key.vertex))))
-                        ?? unblocked.Concat(blocked)
-                            .Select(v => GetSortedBuddyGroup(v).Except(result).ToList())
-                            .First(b => b.Count > 0);
+                        SelectNextBuddyGroupForTopologicalSort(buddyGroups, buddyGroupOfVertex)
+                        ?? buddyGroups.First();
 
                     n = currentBuddyGroup.FirstOrDefault(v => !v.order.HasPredecessors)
                         ?? currentBuddyGroup.First();
@@ -817,20 +810,57 @@ namespace Hpdi.Vss2Git
 
                 // 4)
                 result.Add(n);
-                blocked.Remove(n);
-                unblocked.Remove(n);
                 currentBuddyGroup.Remove(n);
-                foreach (var link in n.order.successors.Keys.ToList())
+                if (currentBuddyGroup.Count == 0)
                 {
-                    n.order.RemoveSuccessor(link);
-                    if (!link.HasPredecessors)
-                    {
-                        unblocked.Add(link.vertex);
-                    }
+                    buddyGroups.Remove(currentBuddyGroup);
                 }
+                n.order.successors.Keys.ToList().ForEach(l => n.order.RemoveSuccessor(l));
             }
 
             return result;
+        }
+
+        private static List<Vertex> SelectNextBuddyGroupForTopologicalSort(List<List<Vertex>> buddyGroups, Dictionary<Vertex, List<Vertex>> buddyGroupOfVertex)
+        {
+            // recursively try to find the first unblocked group that enables the first buddy group;
+            // if that fails, try all other buddy groups as primary goal instead of first buddy group;
+            // if all failed, return null;
+            // don't check any buddy group twice for blockers
+
+            var buddyGroupHasBlockers = new HashSet<List<Vertex>>();
+            var candidates = new List<List<Vertex>>();
+            foreach (var primaryGoal in buddyGroups)
+            {
+                candidates.Add(primaryGoal);
+                while (candidates.Count > 0)
+                {
+                    var candidate = candidates[0];
+                    candidates.RemoveAt(0);
+                    if (buddyGroupHasBlockers.Contains(candidate))
+                    {
+                        continue;
+                    }
+
+                    var blockers = candidate
+                        .SelectMany(v => v.order.predecessors.Keys)
+                        .Select(l => l.vertex)
+                        .Except(candidate) // group internal blockers will be resolved internally or cause an error
+                        .Select(v => buddyGroupOfVertex[v])
+                        .ToList();
+                    if (blockers.Count == 0)
+                    {
+                        return candidate;
+                    }
+
+                    buddyGroupHasBlockers.Add(candidate);
+                    candidates.AddRange(blockers);
+                }
+
+                // we could not unblock anything for primaryGoal - that is a bad sign, but we keep on trying
+            }
+
+            return null;
         }
     }
 }
