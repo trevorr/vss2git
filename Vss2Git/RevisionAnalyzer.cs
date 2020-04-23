@@ -823,44 +823,45 @@ namespace Hpdi.Vss2Git
 
         private static List<Vertex> SelectNextBuddyGroupForTopologicalSort(List<List<Vertex>> buddyGroups, Dictionary<Vertex, List<Vertex>> buddyGroupOfVertex)
         {
-            // recursively try to find the first unblocked group that enables the first buddy group;
-            // if that fails, try all other buddy groups as primary goal instead of first buddy group;
-            // if all failed, return null;
-            // don't check any buddy group twice for blockers
+            // Recursively try to find the first earliest unblocked group that enables the first buddy group.
+            // If all failed, return null.
+            // Don't check any buddy group twice for blockers.
 
-            var buddyGroupHasBlockers = new HashSet<List<Vertex>>();
-            var candidates = new List<List<Vertex>>();
-            foreach (var primaryGoal in buddyGroups)
+            List<Vertex> result = null;
+            var isChecked = new HashSet<List<Vertex>>();
+            var candidates = new List<List<Vertex>> {buddyGroups[0]};
+            while (candidates.Count > 0)
             {
-                candidates.Add(primaryGoal);
-                while (candidates.Count > 0)
+                var candidate = candidates[candidates.Count - 1];
+                candidates.RemoveAt(candidates.Count - 1);
+                if (isChecked.Contains(candidate))
                 {
-                    var candidate = candidates[0];
-                    candidates.RemoveAt(0);
-                    if (buddyGroupHasBlockers.Contains(candidate))
-                    {
-                        continue;
-                    }
-
-                    var blockers = candidate
-                        .SelectMany(v => v.order.predecessors.Keys)
-                        .Select(l => l.vertex)
-                        .Except(candidate) // group internal blockers will be resolved internally or cause an error
-                        .Select(v => buddyGroupOfVertex[v])
-                        .ToList();
-                    if (blockers.Count == 0)
-                    {
-                        return candidate;
-                    }
-
-                    buddyGroupHasBlockers.Add(candidate);
-                    candidates.AddRange(blockers);
+                    continue;
                 }
 
-                // we could not unblock anything for primaryGoal - that is a bad sign, but we keep on trying
+                var blockers = candidate
+                    .SelectMany(v => v.order.predecessors.Keys)
+                    .Select(l => l.vertex)
+                    .Except(candidate) // group internal blockers will be resolved internally or cause an error
+                    .Select(v => buddyGroupOfVertex[v])
+                    .ToList();
+                if (blockers.Count == 0)
+                {
+                    if (result == null || candidate[0].CompareTo(result[0]) < 0)
+                    {
+                        result = candidate;
+                    }
+                }
+
+                isChecked.Add(candidate);
+                candidates.AddRange(blockers);
             }
 
-            return null;
+            // If we have not found any group that will work towards unblocking the first group,
+            // there still may be unblocked later groups, but they will not unblock
+            // the first group, so to preserve order it is better to give up now
+            // and handle the problems with the first group.
+            return result;
         }
     }
 }
