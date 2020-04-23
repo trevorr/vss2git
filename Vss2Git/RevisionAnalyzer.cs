@@ -386,19 +386,19 @@ namespace Hpdi.Vss2Git
             // Note: currently *not* adding restrictions for "destroy file" here,
             // because it is not final in case the file is shared.
             var destroyRevisionsByProject = sortedRevisions
-                .Where(s => s.revision.Action.Type == VssActionType.Destroy && s.revision.Item.IsProject)
-                .ToDictionary(s => s.revision.Item.PhysicalName, s => s);
+                .Where(s => s.revision.Action.Type == VssActionType.Destroy && ((VssDestroyAction)s.revision.Action).Name.IsProject)
+                .ToDictionary(s => ((VssDestroyAction)s.revision.Action).Name.PhysicalName, s => s);
             if (destroyRevisionsByProject.Any())
             {
-                // TBD: Can this happen? If a destroy was successful, would we still see the revision?
-                foreach (var s in sortedRevisions)
+                // Note: if a destroy was successful, we still see the item mentioned in projects where it was added, destroyed etc.
+                foreach (var revision in sortedRevisions)
                 {
-                    ICollection<string> items = GetPhysicalNamesReferencedBy(s);
+                    ICollection<string> items = GetPhysicalNamesReferencedBy(revision);
                     foreach (var item in items)
                     {
-                        if (destroyRevisionsByProject.ContainsKey(item))
+                        if (destroyRevisionsByProject.ContainsKey(item) && revision != destroyRevisionsByProject[item])
                         {
-                            graph.AddOrderEdge(s, destroyRevisionsByProject[item]);
+                            graph.AddOrderEdge(revision, destroyRevisionsByProject[item]);
                         }
                     }
                 }
