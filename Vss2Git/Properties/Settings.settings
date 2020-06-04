@@ -33,7 +33,10 @@
       <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="DefaultComment" Type="System.String" Scope="User">
-      <Value Profile="(Default)"></Value>
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="Projects" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)" />
     </Setting>
   </Settings>
 </SettingsFile>

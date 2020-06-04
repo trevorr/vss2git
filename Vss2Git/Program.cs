@@ -14,6 +14,7 @@
  */
 
 using System;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Hpdi.Vss2Git
@@ -27,9 +28,16 @@ namespace Hpdi.Vss2Git
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
+	        Application.ThreadException += ApplicationOnThreadException;
+
+			Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
         }
+
+	    private static void ApplicationOnThreadException(object sender, ThreadExceptionEventArgs args)
+	    {
+		    MessageBox.Show(args.Exception.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+	    }
     }
 }

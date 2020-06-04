@@ -41,7 +41,7 @@ namespace Hpdi.Vss2Git
 
         protected string LogException(Exception exception)
         {
-            var message = ExceptionFormatter.Format(exception);
+            var message = ExceptionFormatter.Format(exception, out _);
             LogException(exception, message);
             return message;
         }

@@ -30,14 +30,18 @@ namespace Hpdi.Vss2Git
 
         private const string sectionSeparator = "------------------------------------------------------------";
 
-        private readonly Stream baseStream;
-        private readonly Encoding encoding;
+	    public readonly string Filename;
+        private readonly Logger commonLogger;
+		private readonly Stream baseStream;
+		private readonly Encoding encoding;
         private readonly IFormatProvider formatProvider;
 
-        public Logger(string filename)
+        public Logger(string filename, Logger commonLogger)
             : this(new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Read))
         {
-        }
+	        this.Filename = filename;
+	        this.commonLogger = commonLogger;
+		}
 
         public Logger(Stream baseStream)
             : this(baseStream, Encoding.Default, CultureInfo.InvariantCulture)
@@ -57,15 +61,7 @@ namespace Hpdi.Vss2Git
             {
                 baseStream.Dispose();
             }
-        }
-
-        public void Write(bool value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
+		}
 
         public void Write(char value)
         {
@@ -75,63 +71,7 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        public void Write(char[] buffer)
-        {
-            if (baseStream != null && buffer != null)
-            {
-                Write(buffer, 0, buffer.Length);
-            }
-        }
-
-        public void Write(decimal value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(double value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(float value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(int value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(long value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(object value)
-        {
-            if (baseStream != null && value != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(string value)
+		public void Write(string value)
         {
             if (baseStream != null && value != null)
             {
@@ -140,114 +80,9 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        public void Write(uint value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(ulong value)
-        {
-            if (baseStream != null)
-            {
-                Write(value.ToString());
-            }
-        }
-
-        public void Write(string format, params object[] arg)
-        {
-            if (baseStream != null && arg != null)
-            {
-                Write(string.Format(formatProvider, format, arg));
-            }
-        }
-
-        public void Write(char[] buffer, int index, int count)
-        {
-            if (baseStream != null && buffer != null)
-            {
-                WriteInternal(buffer, index, count);
-                baseStream.Flush();
-            }
-        }
-
-        public void WriteLine()
+		public void WriteLine()
         {
             Write(Environment.NewLine);
-        }
-
-        public void WriteLine(bool value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(char value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(char[] buffer)
-        {
-            if (baseStream != null && buffer != null)
-            {
-                WriteInternal(buffer, 0, buffer.Length);
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(decimal value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(double value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(float value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(int value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(long value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
         }
 
         public void WriteLine(object value)
@@ -257,68 +92,37 @@ namespace Hpdi.Vss2Git
                 WriteInternal(value.ToString());
                 WriteLine();
             }
-        }
+		}
 
-        public void WriteLine(string value)
+		public void WriteLine(string value)
         {
             if (baseStream != null)
             {
                 WriteInternal(value);
                 WriteLine();
             }
-        }
+		}
 
-        public void WriteLine(uint value)
-        {
-            if (baseStream != null)
+		public void WriteLine(string format, params object[] arg)
+		{
+			string msg = string.Format(formatProvider, format, arg);
+			if (baseStream != null && arg != null)
             {
-                WriteInternal(value.ToString());
+                WriteInternal(msg);
                 WriteLine();
             }
         }
 
-        public void WriteLine(ulong value)
-        {
-            if (baseStream != null)
-            {
-                WriteInternal(value.ToString());
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(string format, params object[] arg)
-        {
-            if (baseStream != null && arg != null)
-            {
-                WriteInternal(string.Format(formatProvider, format, arg));
-                WriteLine();
-            }
-        }
-
-        public void WriteLine(char[] buffer, int index, int count)
-        {
-            if (baseStream != null && buffer != null)
-            {
-                WriteInternal(buffer, index, count);
-                WriteLine();
-            }
-        }
-
-        public void WriteSectionSeparator()
+		public void WriteSectionSeparator()
         {
             WriteLine(sectionSeparator);
         }
 
-        private void WriteInternal(string value)
+		private void WriteInternal(string value)
         {
             var bytes = encoding.GetBytes(value);
             baseStream.Write(bytes, 0, bytes.Length);
+			this.commonLogger?.WriteInternal(value);
         }
-
-        private void WriteInternal(char[] buffer, int index, int count)
-        {
-            var bytes = encoding.GetBytes(buffer, index, count);
-            baseStream.Write(bytes, 0, bytes.Length);
-        }
-    }
+	}
 }

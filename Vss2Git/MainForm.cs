@@ -15,7 +15,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
+using System.Security.AccessControl;
 using System.Text;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
@@ -30,232 +32,276 @@ namespace Hpdi.Vss2Git
     {
         private readonly Dictionary<int, EncodingInfo> codePages = new Dictionary<int, EncodingInfo>();
         private readonly WorkQueue workQueue = new WorkQueue(1);
-        private Logger logger = Logger.Null;
-        private RevisionAnalyzer revisionAnalyzer;
-        private ChangesetBuilder changesetBuilder;
+	    private RunInfo runInfo;
+		private Encoding selectedEncoding = Encoding.Default;
 
-        public MainForm()
+		public MainForm()
         {
-            InitializeComponent();
+	        this.InitializeComponent();
         }
 
-        private void OpenLog(string filename)
+	    public static string GetProjectPath(string outputDir, string vssPath, bool isSuccess)
+	    {
+			string moveDir = isSuccess ? "_success" : "_fail";
+		    moveDir = Path.Combine(outputDir, moveDir);
+		    string projFolder = GetSafeDirName(vssPath);
+		    string projPath = Path.Combine(moveDir, projFolder);
+		    return projPath;
+	    }
+
+		private Logger OpenLog(string filename)
         {
-            logger = string.IsNullOrEmpty(filename) ? Logger.Null : new Logger(filename);
+            return string.IsNullOrEmpty(filename) ? Logger.Null : new Logger(filename, null);
         }
 
-        private void goButton_Click(object sender, EventArgs e)
-        {
-            try
+		private void goButton_Click(object sender, EventArgs e)
+		{
+			this.goButton.Enabled = false;
+			this.projectsTreeControl.CanCheck = false;
+
+			this.WriteSettings();
+
+			string outputDir;
+	        if (this.outDirTextBox.TextLength == 0)
+	        {
+		        outputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory);
+	        }
+	        else
+	        {
+		        outputDir = this.outDirTextBox.Text;
+	        }
+
+	        if (!Directory.Exists(outputDir))
+	        {
+		        Directory.CreateDirectory(outputDir);
+	        }
+
+	        string timeStr = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+
+			string commonLogFile = Path.Combine(outputDir, $"_{timeStr}.log");
+	        Logger commonLogger = this.OpenLog(commonLogFile);
+
+	        string errorLogFile = Path.Combine(outputDir, $"_{timeStr}_errors.log");
+	        Logger errorLogger = this.OpenLog(errorLogFile);
+
+			try
             {
-                OpenLog(logTextBox.Text);
+                commonLogger.WriteLine("VSS2Git version {0}", Assembly.GetExecutingAssembly().GetName().Version);
 
-                logger.WriteLine("VSS2Git version {0}", Assembly.GetExecutingAssembly().GetName().Version);
+	            Encoding encoding = this.selectedEncoding;
+              
+                commonLogger.WriteLine("VSS encoding: {0} (CP: {1}, IANA: {2})", encoding.EncodingName, encoding.CodePage, encoding.WebName);
+                commonLogger.WriteLine("Comment transcoding: {0}", this.transcodeCheckBox.Checked ? "enabled" : "disabled");
+                commonLogger.WriteLine("Ignore errors: {0}", this.ignoreErrorsCheckBox.Checked ? "enabled" : "disabled");
 
-                WriteSettings();
+                VssDatabaseFactory df = new VssDatabaseFactory(this.vssDirTextBox.Text);
+                df.Encoding = this.selectedEncoding;
+                VssDatabase db = df.Open();
 
-                Encoding encoding = Encoding.Default;
-                EncodingInfo encodingInfo;
-                if (codePages.TryGetValue(encodingComboBox.SelectedIndex, out encodingInfo))
-                {
-                    encoding = encodingInfo.GetEncoding();
-                }
+	            Queue<string> toProcess = new Queue<string>();
+	            foreach (string vssPath in this.projectsTreeControl.SelectedPaths)
+	            {
+		            string projPath = GetProjectPath(outputDir, vssPath, true);
+		            if (!Directory.Exists(projPath))
+		            {
+			            toProcess.Enqueue(vssPath);
+		            }
+	            }
 
-                logger.WriteLine("VSS encoding: {0} (CP: {1}, IANA: {2})",
-                    encoding.EncodingName, encoding.CodePage, encoding.WebName);
-                logger.WriteLine("Comment transcoding: {0}",
-                    transcodeCheckBox.Checked ? "enabled" : "disabled");
-                logger.WriteLine("Ignore errors: {0}",
-                    ignoreErrorsCheckBox.Checked ? "enabled" : "disabled");
-
-                var df = new VssDatabaseFactory(vssDirTextBox.Text);
-                df.Encoding = encoding;
-                var db = df.Open();
-
-                var path = vssProjectTextBox.Text;
-                VssItem item;
-                try
-                {
-                    item = db.GetItem(path);
-                }
-                catch (VssPathException ex)
-                {
-                    MessageBox.Show(ex.Message, "Invalid project path",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                var project = item as VssProject;
-                if (project == null)
-                {
-                    MessageBox.Show(path + " is not a project", "Invalid project path",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                revisionAnalyzer = new RevisionAnalyzer(workQueue, logger, db);
-                if (!string.IsNullOrEmpty(excludeTextBox.Text))
-                {
-                    revisionAnalyzer.ExcludeFiles = excludeTextBox.Text;
-                }
-                revisionAnalyzer.AddItem(project);
-
-                changesetBuilder = new ChangesetBuilder(workQueue, logger, revisionAnalyzer);
-                changesetBuilder.AnyCommentThreshold = TimeSpan.FromSeconds((double)anyCommentUpDown.Value);
-                changesetBuilder.SameCommentThreshold = TimeSpan.FromSeconds((double)sameCommentUpDown.Value);
-                changesetBuilder.BuildChangesets();
-
-                if (!string.IsNullOrEmpty(outDirTextBox.Text))
-                {
-                    var gitExporter = new GitExporter(workQueue, logger,
-                        revisionAnalyzer, changesetBuilder);
-                    if (!string.IsNullOrEmpty(domainTextBox.Text))
-                    {
-                        gitExporter.EmailDomain = domainTextBox.Text;
-                    }
-                    if (!string.IsNullOrEmpty(commentTextBox.Text))
-                    {
-                        gitExporter.DefaultComment = commentTextBox.Text;
-                    }
-                    if (!transcodeCheckBox.Checked)
-                    {
-                        gitExporter.CommitEncoding = encoding;
-                    }
-                    gitExporter.IgnoreErrors = ignoreErrorsCheckBox.Checked;
-                    gitExporter.ExportToGit(outDirTextBox.Text);
-                }
-
-                workQueue.Idle += delegate
-                {
-                    logger.Dispose();
-                    logger = Logger.Null;
-                };
-
-                statusTimer.Enabled = true;
-                goButton.Enabled = false;
-            }
-            catch (Exception ex)
+				this.runInfo = new RunInfo(this, outputDir, commonLogger, db, encoding, errorLogger, this.workQueue, toProcess);
+	          
+			    this.statusTimer.Enabled = true;
+			}
+			catch (Exception ex)
             {
-                logger.Dispose();
-                logger = Logger.Null;
-                ShowException(ex);
+			    string msg = $"GLOBAL ERROR: {ex}";
+
+				errorLogger.WriteLine(msg);
+	            commonLogger.WriteLine(msg);
+
+				this.ShowException(ex);
             }
         }
 
-        private void cancelButton_Click(object sender, EventArgs e)
+	    private void cancelButton_Click(object sender, EventArgs e)
         {
-            workQueue.Abort();
+	        if (this.runInfo != null)
+	        {
+		        this.runInfo.SetCancelled();
+	        }
+	        this.workQueue.Abort();
         }
 
-        private void statusTimer_Tick(object sender, EventArgs e)
-        {
-            statusLabel.Text = workQueue.LastStatus ?? "Idle";
-            timeLabel.Text = string.Format("Elapsed: {0:HH:mm:ss}",
-                new DateTime(workQueue.ActiveTime.Ticks));
+		private void statusTimer_Tick(object sender, EventArgs e)
+		{
+			if (this.runInfo == null)
+			{
+				this.projectLabel.Text = "";
+			}
+			else
+			{
+				this.projectLabel.Text = this.runInfo.GetProject();
+			}
+			this.statusLabel.Text = this.workQueue.LastStatus ?? "Idle";
+	        this.timeLabel.Text = string.Format("Elapsed: {0:HH:mm:ss}", new DateTime(this.workQueue.ActiveTime.Ticks));
 
-            if (revisionAnalyzer != null)
-            {
-                fileLabel.Text = "Files: " + revisionAnalyzer.FileCount;
-                revisionLabel.Text = "Revisions: " + revisionAnalyzer.RevisionCount;
-            }
+	        if (this.runInfo != null)
+	        {
+		        if (this.runInfo.RevisionAnalyzer != null)
+		        {
+			        this.fileLabel.Text = "Files: " + this.runInfo.RevisionAnalyzer.FileCount;
+			        this.revisionLabel.Text = "Revisions: " + this.runInfo.RevisionAnalyzer.RevisionCount;
+		        }
 
-            if (changesetBuilder != null)
-            {
-                changeLabel.Text = "Changesets: " + changesetBuilder.Changesets.Count;
-            }
+		        if (this.runInfo.ChangesetBuilder != null)
+		        {
+			        this.changeLabel.Text = "Changesets: " + this.runInfo.ChangesetBuilder.Changesets.Count;
+		        }
 
-            if (workQueue.IsIdle)
-            {
-                revisionAnalyzer = null;
-                changesetBuilder = null;
+		        if (this.workQueue.IsIdle)
+		        {
+			        this.runInfo.PostProcess();
+			        this.projectsTreeControl.UpdateNodes();
 
-                statusTimer.Enabled = false;
-                goButton.Enabled = true;
-            }
+					bool isEnd;
+			        try
+			        {
+				        isEnd = !this.runInfo.StartNext();
+					}
+					catch (Exception ex)
+					{
+						this.ShowException(ex);
+						isEnd = true;
+			        }
 
-            var exceptions = workQueue.FetchExceptions();
-            if (exceptions != null)
-            {
-                foreach (var exception in exceptions)
-                {
-                    ShowException(exception);
-                }
-            }
+			        if (isEnd && this.runInfo != null)
+			        {
+				        this.runInfo.Dispose();
+				        this.runInfo = null;
+
+						this.workQueue.Abort();
+				        this.statusTimer.Enabled = false;
+				        this.goButton.Enabled = true;
+						this.projectsTreeControl.CanCheck = true;
+					}
+				}
+	        }
         }
 
         private void ShowException(Exception exception)
         {
-            var message = ExceptionFormatter.Format(exception);
-            logger.WriteLine("ERROR: {0}", message);
-            logger.WriteLine(exception);
+	        bool isKnown;
+	        string message = ExceptionFormatter.Format(exception, out isKnown);
+            //logger.WriteLine("ERROR: {0}", message);
+            //logger.WriteLine(exception);
 
-            MessageBox.Show(message, "Unhandled Exception",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+	        if (!isKnown)
+	        {
+		        message = exception.ToString();
+	        }
+	        MessageBox.Show(message, "Unhandled Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
 
-        private void MainForm_Load(object sender, EventArgs e)
+		private void MainForm_Load(object sender, EventArgs e)
         {
             this.Text += " " + Assembly.GetExecutingAssembly().GetName().Version;
 
-            var defaultCodePage = Encoding.Default.CodePage;
-            var description = string.Format("System default - {0}", Encoding.Default.EncodingName);
-            var defaultIndex = encodingComboBox.Items.Add(description);
-            encodingComboBox.SelectedIndex = defaultIndex;
+            int defaultCodePage = Encoding.Default.CodePage;
+            string description = string.Format("System default - {0}", Encoding.Default.EncodingName);
+            int defaultIndex = this.encodingComboBox.Items.Add(description);
+	        this.encodingComboBox.SelectedIndex = defaultIndex;
 
-            var encodings = Encoding.GetEncodings();
+            EncodingInfo[] encodings = Encoding.GetEncodings();
             foreach (var encoding in encodings)
             {
-                var codePage = encoding.CodePage;
+                int codePage = encoding.CodePage;
                 description = string.Format("CP{0} - {1}", codePage, encoding.DisplayName);
-                var index = encodingComboBox.Items.Add(description);
-                codePages[index] = encoding;
+                int index = this.encodingComboBox.Items.Add(description);
+	            this.codePages[index] = encoding;
                 if (codePage == defaultCodePage)
                 {
-                    codePages[defaultIndex] = encoding;
+	                this.codePages[defaultIndex] = encoding;
                 }
             }
 
-            ReadSettings();
+	        this.ReadSettings();
+
+	        if (this.vssDirTextBox.TextLength > 0)
+	        {
+		        this.projectsTreeControl.RefreshProjects();
+	        }
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            WriteSettings();
+	        this.WriteSettings();
 
-            workQueue.Abort();
-            workQueue.WaitIdle();
+	        this.workQueue.Abort();
+	        this.workQueue.WaitIdle();
         }
 
         private void ReadSettings()
         {
             var settings = Properties.Settings.Default;
-            vssDirTextBox.Text = settings.VssDirectory;
-            vssProjectTextBox.Text = settings.VssProject;
-            excludeTextBox.Text = settings.VssExcludePaths;
-            outDirTextBox.Text = settings.GitDirectory;
-            domainTextBox.Text = settings.DefaultEmailDomain;
-            commentTextBox.Text = settings.DefaultComment;
-            logTextBox.Text = settings.LogFile;
-            transcodeCheckBox.Checked = settings.TranscodeComments;
-            forceAnnotatedCheckBox.Checked = settings.ForceAnnotatedTags;
-            anyCommentUpDown.Value = settings.AnyCommentSeconds;
-            sameCommentUpDown.Value = settings.SameCommentSeconds;
+	        this.vssDirTextBox.Text = settings.VssDirectory;
+	        this.excludeTextBox.Text = settings.VssExcludePaths;
+	        this.outDirTextBox.Text = settings.GitDirectory;
+	        this.domainTextBox.Text = settings.DefaultEmailDomain;
+	        this.commentTextBox.Text = settings.DefaultComment;
+	        this.transcodeCheckBox.Checked = settings.TranscodeComments;
+	        this.forceAnnotatedCheckBox.Checked = settings.ForceAnnotatedTags;
+	        this.anyCommentUpDown.Value = settings.AnyCommentSeconds;
+	        this.sameCommentUpDown.Value = settings.SameCommentSeconds;
+	        this.projectsTreeControl.SelectedPaths = settings.Projects;
         }
 
         private void WriteSettings()
         {
             var settings = Properties.Settings.Default;
-            settings.VssDirectory = vssDirTextBox.Text;
-            settings.VssProject = vssProjectTextBox.Text;
-            settings.VssExcludePaths = excludeTextBox.Text;
-            settings.GitDirectory = outDirTextBox.Text;
-            settings.DefaultEmailDomain = domainTextBox.Text;
-            settings.LogFile = logTextBox.Text;
-            settings.TranscodeComments = transcodeCheckBox.Checked;
-            settings.ForceAnnotatedTags = forceAnnotatedCheckBox.Checked;
-            settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
-            settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
+            settings.VssDirectory = this.vssDirTextBox.Text;
+            settings.VssExcludePaths = this.excludeTextBox.Text;
+            settings.GitDirectory = this.outDirTextBox.Text;
+            settings.DefaultEmailDomain = this.domainTextBox.Text;
+            settings.TranscodeComments = this.transcodeCheckBox.Checked;
+            settings.ForceAnnotatedTags = this.forceAnnotatedCheckBox.Checked;
+            settings.AnyCommentSeconds = (int)this.anyCommentUpDown.Value;
+            settings.SameCommentSeconds = (int)this.sameCommentUpDown.Value;
+	        settings.Projects = this.projectsTreeControl.SelectedPaths;
             settings.Save();
         }
-    }
+
+	    private static string GetSafeDirName(string name)
+	    {
+		    name = name.Replace("$/", "");
+		    name = name.Replace("/", "_");
+		    return name;
+	    }
+
+		private void vssDirTextBox_TextChanged(object sender, EventArgs e)
+		{
+			this.projectsTreeControl.VSSDirectory = this.vssDirTextBox.Text.Trim();
+		}
+
+	    private void outDirTextBox_TextChanged(object sender, EventArgs e)
+	    {
+		    this.projectsTreeControl.OutputDirectory = this.outDirTextBox.Text.Trim();
+		}
+
+		private void encodingComboBox_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			Encoding encoding = Encoding.Default;
+			EncodingInfo encodingInfo;
+			if (this.codePages.TryGetValue(this.encodingComboBox.SelectedIndex, out encodingInfo))
+			{
+				encoding = encodingInfo.GetEncoding();
+			}
+			this.selectedEncoding = encoding;
+			this.projectsTreeControl.Encoding = encoding;
+		}
+
+		private void projectsTreeControl_CheckedChanged(object sender, EventArgs e)
+		{
+			this.WriteSettings();
+		}
+	}
 }

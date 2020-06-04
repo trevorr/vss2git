@@ -195,8 +195,9 @@ namespace Hpdi.Vss2Git
                 catch (Exception e)
                 {
                     // hook for worker exceptions
+#warning normal process error!
                     OnException(work, e);
-                }
+				}
                 finally
                 {
                     // hook for worker cleanup

@@ -23,13 +23,14 @@ namespace Hpdi.Vss2Git
     /// <author>Trevor Robinson</author>
     static class ExceptionFormatter
     {
-        public static string Format(Exception e)
+        public static string Format(Exception e, out bool isKnown)
         {
             var message = e.Message;
 
             var processExit = e as ProcessExitException;
             if (processExit != null)
             {
+	            isKnown = true;
                 return string.Format("{0}\nExecutable: {1}\nArguments: {2}\nStdout: {3}\nStderr: {4}",
                     message, processExit.Executable, processExit.Arguments, processExit.Stdout, processExit.Stderr);
             }
@@ -37,10 +38,12 @@ namespace Hpdi.Vss2Git
             var process = e as ProcessException;
             if (process != null)
             {
-                return string.Format("{0}\nExecutable: {1}\nArguments: {2}",
+	            isKnown = true;
+				return string.Format("{0}\nExecutable: {1}\nArguments: {2}",
                     message, process.Executable, process.Arguments);
             }
 
+	        isKnown = false;
             return message;
         }
     }
