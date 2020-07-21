@@ -104,7 +104,7 @@ namespace Hpdi.Vss2Git
 
         public bool Add(string path)
         {
-            var startInfo = GetStartInfo("add -- " + Quote(path));
+            var startInfo = GetStartInfo("add -f -- " + Quote(path));
 
             // add fails if there are no files (directories don't count)
             return ExecuteUnless(startInfo, "did not match any files");
@@ -117,7 +117,7 @@ namespace Hpdi.Vss2Git
                 return false;
             }
 
-            var args = new StringBuilder("add -- ");
+            var args = new StringBuilder("add -f -- ");
             CollectionUtil.Join(args, " ", CollectionUtil.Transform<string, string>(paths, Quote));
             var startInfo = GetStartInfo(args.ToString());
 
@@ -127,7 +127,7 @@ namespace Hpdi.Vss2Git
 
         public bool AddAll()
         {
-            var startInfo = GetStartInfo("add -A");
+            var startInfo = GetStartInfo("add -f -A");
 
             // add fails if there are no files (directories don't count)
             return ExecuteUnless(startInfo, "did not match any files");

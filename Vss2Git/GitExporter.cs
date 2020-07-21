@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -55,6 +56,13 @@ namespace Hpdi.Vss2Git
         }
 
         private bool forceAnnotatedTags = true;
+
+        private string gitRepositoryPath;
+
+        private readonly string sharedFilesFolderName = ".vss2git_shared";
+
+        private Dictionary<string, string> sharedPathOfPhysicalName;
+
         public bool ForceAnnotatedTags
         {
             get { return forceAnnotatedTags; }
@@ -84,6 +92,9 @@ namespace Hpdi.Vss2Git
 
         public void ExportToGit(string repoPath)
         {
+            gitRepositoryPath = repoPath;
+            sharedPathOfPhysicalName = new Dictionary<string, string>();
+
             workQueue.AddLast(delegate(object work)
             {
                 var stopwatch = Stopwatch.StartNew();
@@ -235,9 +246,9 @@ namespace Hpdi.Vss2Git
                 stopwatch.Stop();
 
                 logger.WriteSectionSeparator();
-                logger.WriteLine("Git export complete in {0:HH:mm:ss}", new DateTime(stopwatch.ElapsedTicks));
-                logger.WriteLine("Replay time: {0:HH:mm:ss}", new DateTime(replayStopwatch.ElapsedTicks));
-                logger.WriteLine("Git time: {0:HH:mm:ss}", new DateTime(git.ElapsedTime.Ticks));
+                logger.WriteLine("Git export complete in {0}", TimeSpan.FromSeconds(Math.Floor(stopwatch.Elapsed.TotalSeconds)));
+                logger.WriteLine("Replay time: {0}", TimeSpan.FromSeconds(Math.Floor(replayStopwatch.Elapsed.TotalSeconds)));
+                logger.WriteLine("Git time: {0}", TimeSpan.FromSeconds(Math.Floor(git.ElapsedTime.TotalSeconds)));
                 logger.WriteLine("Git commits: {0}", commitCount);
                 logger.WriteLine("Git tags: {0}", tagCount);
             });
@@ -259,6 +270,55 @@ namespace Hpdi.Vss2Git
                     needCommit |= ReplayRevision(pathMapper, revision, git, labels);
                 });
             }
+            AbortRetryIgnore(delegate
+            {
+                needCommit |= CheckChangesetAfterReplay(pathMapper, changeset, git);
+            });
+            return needCommit;
+        }
+
+        // If a changeset modifies a file by edit, branch, or create,
+        // but the file has no path after replaying the changeset,
+        // the new revision may still be important history when the file
+        // is shared with a project later on in the future.
+        // To ensure the history is preserved we keep this and future revisions
+        // of the file in .vss2git_shared/%PhysicalName%/%LogicalName%
+        private bool CheckChangesetAfterReplay(VssPathMapper pathMapper,
+            Changeset changeset, GitWrapper git)
+        {
+            var needCommit = false;
+            foreach (var revision in changeset.Revisions)
+            {
+                var actionType = revision.Action.Type;
+                if (!revision.Item.IsProject &&
+                    (actionType == VssActionType.Edit ||
+                     actionType == VssActionType.Branch ||
+                     actionType == VssActionType.Create))
+                {
+                    var target = revision.Item;
+                    var physicalName = target.PhysicalName;
+                    bool hasPaths = pathMapper.GetFilePaths(physicalName, null).Any();
+                    if (!hasPaths || sharedPathOfPhysicalName.ContainsKey(physicalName))
+                    {
+                        string sharedPath;
+                        if (!sharedPathOfPhysicalName.TryGetValue(physicalName, out sharedPath))
+                        {
+                            sharedPath = Path.Combine(gitRepositoryPath,
+                                sharedFilesFolderName, physicalName, target.LogicalName);
+                            sharedPathOfPhysicalName[physicalName] = sharedPath;
+                        }
+
+                        int version = pathMapper.GetFileVersion(physicalName);
+                        logger.WriteLine("{0}: {1} revision {2}", sharedPath, actionType, version);
+                        if (WriteRevisionTo(physicalName, version, sharedPath))
+                        {
+                            git.Add(sharedPath);
+                            needCommit = true;
+                        }
+                    }
+                }
+            }
+
             return needCommit;
         }
 

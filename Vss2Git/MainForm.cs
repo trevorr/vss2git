@@ -97,6 +97,7 @@ namespace Hpdi.Vss2Git
                 if (!string.IsNullOrEmpty(excludeTextBox.Text))
                 {
                     revisionAnalyzer.ExcludeFiles = excludeTextBox.Text;
+                    revisionAnalyzer.IgnoreSortingErrors = ignoreErrorsCheckBox.Checked;
                 }
                 revisionAnalyzer.AddItem(project);
 
@@ -133,6 +134,7 @@ namespace Hpdi.Vss2Git
 
                 statusTimer.Enabled = true;
                 goButton.Enabled = false;
+                cancelButton.Text = "Cancel";
             }
             catch (Exception ex)
             {
@@ -144,14 +146,21 @@ namespace Hpdi.Vss2Git
 
         private void cancelButton_Click(object sender, EventArgs e)
         {
-            workQueue.Abort();
+            if (goButton.Enabled)
+            {
+                Close();
+            }
+            else
+            {
+                workQueue.Abort();
+            }
         }
 
         private void statusTimer_Tick(object sender, EventArgs e)
         {
             statusLabel.Text = workQueue.LastStatus ?? "Idle";
-            timeLabel.Text = string.Format("Elapsed: {0:HH:mm:ss}",
-                new DateTime(workQueue.ActiveTime.Ticks));
+            timeLabel.Text = string.Format("Elapsed: {0}",
+                TimeSpan.FromSeconds(Math.Floor(workQueue.ActiveTime.TotalSeconds)));
 
             if (revisionAnalyzer != null)
             {
@@ -171,6 +180,7 @@ namespace Hpdi.Vss2Git
 
                 statusTimer.Enabled = false;
                 goButton.Enabled = true;
+                cancelButton.Text = "Close";
             }
 
             var exceptions = workQueue.FetchExceptions();
