@@ -1,3 +1,5 @@
+> :warning: **This project is no longer actively maintained or supported.** You can open issues to record, share, and discuss them, but **please do not expect anyone else to act on them.** Because there are no regression tests or automated builds, **pull requests will likely never be merged.** If you would like to implement automated tests and builds, please contact me about becoming a maintainer.
+
 ## What is it? ##
 
 The Vss2Git project contains several components:
