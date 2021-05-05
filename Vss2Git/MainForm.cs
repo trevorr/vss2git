@@ -67,6 +67,8 @@ namespace Hpdi.Vss2Git
                     transcodeCheckBox.Checked ? "enabled" : "disabled");
                 logger.WriteLine("Ignore errors: {0}",
                     ignoreErrorsCheckBox.Checked ? "enabled" : "disabled");
+                logger.WriteLine("Collapse VSS Path: {0}",
+                    collapsePathCheckBox.Checked ? "enabled" : "disabled");
 
                 var df = new VssDatabaseFactory(vssDirTextBox.Text);
                 df.Encoding = encoding;
@@ -122,6 +124,7 @@ namespace Hpdi.Vss2Git
                         gitExporter.CommitEncoding = encoding;
                     }
                     gitExporter.IgnoreErrors = ignoreErrorsCheckBox.Checked;
+                    gitExporter.CollapsePath = collapsePathCheckBox.Checked;
                     gitExporter.ExportToGit(outDirTextBox.Text);
                 }
 
@@ -240,6 +243,7 @@ namespace Hpdi.Vss2Git
             forceAnnotatedCheckBox.Checked = settings.ForceAnnotatedTags;
             anyCommentUpDown.Value = settings.AnyCommentSeconds;
             sameCommentUpDown.Value = settings.SameCommentSeconds;
+            collapsePathCheckBox.Checked = settings.CollapsePath;
         }
 
         private void WriteSettings()
@@ -255,6 +259,7 @@ namespace Hpdi.Vss2Git
             settings.ForceAnnotatedTags = forceAnnotatedCheckBox.Checked;
             settings.AnyCommentSeconds = (int)anyCommentUpDown.Value;
             settings.SameCommentSeconds = (int)sameCommentUpDown.Value;
+            settings.CollapsePath = collapsePathCheckBox.Checked;
             settings.Save();
         }
     }
