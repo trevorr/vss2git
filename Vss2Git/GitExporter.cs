@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -381,7 +382,7 @@ namespace Hpdi.Vss2Git
                                 {
                                     // renaming a file or a project that contains files?
                                     var projectInfo = itemInfo as VssProjectInfo;
-                                    if (projectInfo == null || projectInfo.ContainsFiles())
+                                    if (projectInfo == null || (projectInfo.ContainsFiles() && projectInfo.Items.All(x => !x.Destroyed)))
                                     {
                                         CaseSensitiveRename(sourcePath, targetPath, git.Move);
                                         needCommit = true;
@@ -389,7 +390,7 @@ namespace Hpdi.Vss2Git
                                     else
                                     {
                                         // git doesn't care about directories with no files
-                                        CaseSensitiveRename(sourcePath, targetPath, Directory.Move);
+                                        CaseSensitiveRename(sourcePath, targetPath, CaseSensitiveDirectoryMove);
                                     }
                                 }
                                 else
@@ -415,15 +416,16 @@ namespace Hpdi.Vss2Git
                             {
                                 if (sourcePath != null && Directory.Exists(sourcePath))
                                 {
+                                    var isSamePath = sourcePath.Equals(targetPath, StringComparison.OrdinalIgnoreCase);
                                     if (projectInfo.ContainsFiles())
                                     {
-                                        git.Move(sourcePath, targetPath);
+                                        git.Move(sourcePath, targetPath, isSamePath);
                                         needCommit = true;
                                     }
                                     else
                                     {
                                         // git doesn't care about directories with no files
-                                        Directory.Move(sourcePath, targetPath);
+                                        CaseSensitiveDirectoryMove(sourcePath, targetPath, isSamePath);
                                     }
                                 }
                                 else
@@ -733,39 +735,24 @@ namespace Hpdi.Vss2Git
             }
         }
 
-        private delegate void RenameDelegate(string sourcePath, string destPath);
+        private delegate void RenameDelegate(string sourcePath, string destPath, bool force);
 
         private void CaseSensitiveRename(string sourcePath, string destPath, RenameDelegate renamer)
         {
-            if (sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase))
+            renamer(sourcePath, destPath, sourcePath.Equals(destPath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void CaseSensitiveDirectoryMove(string sourcePath, string targetPath, bool force)
+        {
+            if (force)
             {
-                // workaround for case-only renames on case-insensitive file systems:
-
-                var sourceDir = Path.GetDirectoryName(sourcePath);
-                var sourceFile = Path.GetFileName(sourcePath);
-                var destDir = Path.GetDirectoryName(destPath);
-                var destFile = Path.GetFileName(destPath);
-
-                if (sourceDir != destDir)
-                {
-                    // recursively rename containing directories that differ in case
-                    CaseSensitiveRename(sourceDir, destDir, renamer);
-
-                    // fix up source path based on renamed directory
-                    sourcePath = Path.Combine(destDir, sourceFile);
-                }
-
-                if (sourceFile != destFile)
-                {
-                    // use temporary filename to rename files that differ in case
-                    var tempPath = sourcePath + ".mvtmp";
-                    CaseSensitiveRename(sourcePath, tempPath, renamer);
-                    CaseSensitiveRename(tempPath, destPath, renamer);
-                }
+                var tmpPath = targetPath + ".mvtmp";
+                Directory.Move(sourcePath, tmpPath);
+                Directory.Move(tmpPath, targetPath);
             }
             else
             {
-                renamer(sourcePath, destPath);
+                Directory.Move(sourcePath, targetPath);
             }
         }
     }

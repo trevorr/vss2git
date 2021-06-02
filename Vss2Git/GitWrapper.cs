@@ -138,9 +138,18 @@ namespace Hpdi.Vss2Git
             GitExec("rm " + (recursive ? "-r " : "") + "-- " + Quote(path));
         }
 
-        public void Move(string sourcePath, string destPath)
+        public void Move(string sourcePath, string destPath, bool force)
         {
-            GitExec("mv -- " + Quote(sourcePath) + " " + Quote(destPath));
+            if (force)
+            {
+                var tempPath = destPath + ".mvtmp";
+                GitExec("mv -- " + Quote(sourcePath) + " " + Quote(tempPath));
+                GitExec("mv -- " + Quote(tempPath) + " " + Quote(destPath));
+            }
+            else
+            {
+                GitExec("mv -- " + Quote(sourcePath) + " " + Quote(destPath));
+            }
         }
 
         class TempFile : IDisposable
