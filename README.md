@@ -57,6 +57,12 @@ Admittedly, some potentially interesting features are currently outside the scop
   * Vss2Git includes a simplistic algorithm for generating author email addresses from VSS user names: it converts the name to lower case, replaces spaces with periods, and appends the domain name specified in the dialog box. For example, "John Doe" becomes "john.doe@localhost". This is adequate for many cases, but obviously not all. For now, you may wish to hack GitExporter.GetEmail().
   * Git has difficulty dealing with changing the case of a filename on a case-insensitive file system (e.g. Windows). Vss2Git does contain a workaround for this, which involves executing "git mv" twice, once to rename to a temporary name, and then to rename to the final name. This worked for me with msysgit 1.6.2, but there's no guarantee it will work in all cases or with all versions.
 
+## Can I script it? ##
+
+Currently there is no offically supported Command Line Interface (CLI).  
+[There is a fork](https://github.com/bwilli66/vss2git-hybrid) that implements a CLI, but it is a mostly-untested, experimental feature.  
+Use it at your own risk.
+
 ## Screenshot ##
 
 ![http://vss2git.googlecode.com/files/Vss2Git.png](https://raw.githubusercontent.com/trevorr/vss2git/master/Vss2Git.png)
