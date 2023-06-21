@@ -72,33 +72,36 @@ namespace Hpdi.Vss2Git
                 df.Encoding = encoding;
                 var db = df.Open();
 
-                var path = vssProjectTextBox.Text;
-                VssItem item;
-                try
-                {
-                    item = db.GetItem(path);
-                }
-                catch (VssPathException ex)
-                {
-                    MessageBox.Show(ex.Message, "Invalid project path",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                var project = item as VssProject;
-                if (project == null)
-                {
-                    MessageBox.Show(path + " is not a project", "Invalid project path",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
                 revisionAnalyzer = new RevisionAnalyzer(workQueue, logger, db);
                 if (!string.IsNullOrEmpty(excludeTextBox.Text))
                 {
                     revisionAnalyzer.ExcludeFiles = excludeTextBox.Text;
                 }
-                revisionAnalyzer.AddItem(project);
+
+                var paths = vssProjectTextBox.Text.Split(new char[]{';'}, StringSplitOptions.RemoveEmptyEntries);
+                foreach(var path in paths)
+                {
+                    VssItem item;
+                    try
+                    {
+                        item = db.GetItem(path.Trim());
+                    }
+                    catch (VssPathException ex)
+                    {
+                        MessageBox.Show(ex.Message, "Invalid project path",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    var project = item as VssProject;
+                    if (project == null)
+                    {
+                        MessageBox.Show(path + " is not a project", "Invalid project path",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                    revisionAnalyzer.AddItem(project);
+                }
 
                 changesetBuilder = new ChangesetBuilder(workQueue, logger, revisionAnalyzer);
                 changesetBuilder.AnyCommentThreshold = TimeSpan.FromSeconds((double)anyCommentUpDown.Value);
