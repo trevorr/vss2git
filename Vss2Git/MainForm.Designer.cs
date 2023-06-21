@@ -52,6 +52,7 @@
             this.commentLabel = new System.Windows.Forms.Label();
             this.forceAnnotatedCheckBox = new System.Windows.Forms.CheckBox();
             this.transcodeCheckBox = new System.Windows.Forms.CheckBox();
+            this.collapsePathCheckBox = new System.Windows.Forms.CheckBox();
             this.domainTextBox = new System.Windows.Forms.TextBox();
             this.domainLabel = new System.Windows.Forms.Label();
             this.outDirTextBox = new System.Windows.Forms.TextBox();
@@ -77,8 +78,8 @@
             // 
             // vssGroupBox
             // 
-            this.vssGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.vssGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.vssGroupBox.Controls.Add(this.encodingLabel);
             this.vssGroupBox.Controls.Add(this.encodingComboBox);
             this.vssGroupBox.Controls.Add(this.excludeTextBox);
@@ -105,8 +106,8 @@
             // 
             // encodingComboBox
             // 
-            this.encodingComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.encodingComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.encodingComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.encodingComboBox.FormattingEnabled = true;
             this.encodingComboBox.Location = new System.Drawing.Point(94, 97);
@@ -116,8 +117,8 @@
             // 
             // excludeTextBox
             // 
-            this.excludeTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.excludeTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.excludeTextBox.Location = new System.Drawing.Point(94, 71);
             this.excludeTextBox.Name = "excludeTextBox";
             this.excludeTextBox.Size = new System.Drawing.Size(460, 20);
@@ -134,8 +135,8 @@
             // 
             // vssProjectTextBox
             // 
-            this.vssProjectTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.vssProjectTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.vssProjectTextBox.Location = new System.Drawing.Point(94, 45);
             this.vssProjectTextBox.Name = "vssProjectTextBox";
             this.vssProjectTextBox.Size = new System.Drawing.Size(460, 20);
@@ -143,8 +144,8 @@
             // 
             // vssDirTextBox
             // 
-            this.vssDirTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.vssDirTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.vssDirTextBox.Location = new System.Drawing.Point(94, 19);
             this.vssDirTextBox.Name = "vssDirTextBox";
             this.vssDirTextBox.Size = new System.Drawing.Size(460, 20);
@@ -231,13 +232,14 @@
             // 
             // outputGroupBox
             // 
-            this.outputGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.outputGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.outputGroupBox.Controls.Add(this.ignoreErrorsCheckBox);
             this.outputGroupBox.Controls.Add(this.commentTextBox);
             this.outputGroupBox.Controls.Add(this.commentLabel);
             this.outputGroupBox.Controls.Add(this.forceAnnotatedCheckBox);
             this.outputGroupBox.Controls.Add(this.transcodeCheckBox);
+            this.outputGroupBox.Controls.Add(this.collapsePathCheckBox);
             this.outputGroupBox.Controls.Add(this.domainTextBox);
             this.outputGroupBox.Controls.Add(this.domainLabel);
             this.outputGroupBox.Controls.Add(this.outDirTextBox);
@@ -293,10 +295,20 @@
             this.transcodeCheckBox.Text = "Transcode commit comments to UTF-8";
             this.transcodeCheckBox.UseVisualStyleBackColor = true;
             // 
+            // collapsePathCheckBox
+            // 
+            this.collapsePathCheckBox.AutoSize = true;
+            this.collapsePathCheckBox.Location = new System.Drawing.Point(428, 123);
+            this.collapsePathCheckBox.Name = "collapsePathCheckBox";
+            this.collapsePathCheckBox.Size = new System.Drawing.Size(148, 17);
+            this.collapsePathCheckBox.TabIndex = 8;
+            this.collapsePathCheckBox.Text = "Collapse VSS Path";
+            this.collapsePathCheckBox.UseVisualStyleBackColor = true;
+            // 
             // domainTextBox
             // 
-            this.domainTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.domainTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.domainTextBox.Location = new System.Drawing.Point(94, 45);
             this.domainTextBox.Name = "domainTextBox";
             this.domainTextBox.Size = new System.Drawing.Size(460, 20);
@@ -313,8 +325,8 @@
             // 
             // outDirTextBox
             // 
-            this.outDirTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.outDirTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.outDirTextBox.Location = new System.Drawing.Point(94, 19);
             this.outDirTextBox.Name = "outDirTextBox";
             this.outDirTextBox.Size = new System.Drawing.Size(460, 20);
@@ -331,8 +343,8 @@
             // 
             // logTextBox
             // 
-            this.logTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-                        | System.Windows.Forms.AnchorStyles.Right)));
+            this.logTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.logTextBox.Location = new System.Drawing.Point(94, 71);
             this.logTextBox.Name = "logTextBox";
             this.logTextBox.Size = new System.Drawing.Size(460, 20);
@@ -433,7 +445,7 @@
             this.anyCommentUpDown.Name = "anyCommentUpDown";
             this.anyCommentUpDown.Size = new System.Drawing.Size(54, 20);
             this.anyCommentUpDown.TabIndex = 1;
-            //
+            // 
             // ignoreErrorsCheckBox
             //
             this.ignoreErrorsCheckBox.AutoSize = true;
@@ -519,6 +531,7 @@
         private System.Windows.Forms.CheckBox ignoreErrorsCheckBox;
         private System.Windows.Forms.TextBox commentTextBox;
         private System.Windows.Forms.Label commentLabel;
+        private System.Windows.Forms.CheckBox collapsePathCheckBox;
     }
 }
 
