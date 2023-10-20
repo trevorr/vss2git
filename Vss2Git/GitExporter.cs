@@ -20,6 +20,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using Hpdi.VssLogicalLib;
@@ -39,6 +40,20 @@ namespace Hpdi.Vss2Git
         private readonly HashSet<string> tagsUsed = new HashSet<string>();
         private bool ignoreErrors = false;
         private string defaultComment = "";
+
+        private string emailMapFile = "emailmap.xml";
+        public string EmailMapFile
+        {
+            get { return emailMapFile; }
+            set { emailMapFile = value; }
+        }
+
+        private Dictionary<string, string> emailMap = new Dictionary<string, string>();
+        public System.Collections.Generic.Dictionary<string, string> EmailMap
+        {
+            get { return emailMap; }
+            set { emailMap = value; }
+        }
 
         private string emailDomain = "localhost";
         public string EmailDomain
@@ -82,6 +97,23 @@ namespace Hpdi.Vss2Git
             this.changesetBuilder = changesetBuilder;
         }
 
+        public bool ReadEmailMap()
+        {
+            try
+            {
+                XDocument xdoc = XDocument.Load(emailMapFile);
+                foreach (var map in xdoc.Elements("map"))
+                {
+                    emailMap.Add(map.Attribute("name").Value.ToLower(), map.Attribute("email").Value);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                return false;
+            }
+            return true;
+        }
+
         public void ExportToGit(string repoPath)
         {
             workQueue.AddLast(delegate(object work)
@@ -95,6 +127,19 @@ namespace Hpdi.Vss2Git
                 if (!Directory.Exists(repoPath))
                 {
                     Directory.CreateDirectory(repoPath);
+                }
+
+                while(!ReadEmailMap())
+                {
+                    var button = MessageBox.Show("Email map file not found. ",
+                        "Error", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error);
+                    if (button == DialogResult.Abort)
+                    {
+                        workQueue.Abort();
+                        return;
+                    }
+                    if (button == DialogResult.Ignore)
+                        break;
                 }
 
                 var git = new GitWrapper(repoPath, logger);
@@ -638,8 +683,16 @@ namespace Hpdi.Vss2Git
 
         private string GetEmail(string user)
         {
-            // TODO: user-defined mapping of user names to email addresses
-            return user.ToLower().Replace(' ', '.') + "@" + emailDomain;
+            // check user-defined mapping of user names to email addresses
+            string username = user.ToLower();
+            string email;
+            if (emailMap.TryGetValue(username, out email))
+            {
+                if (!email.Contains("@"))
+                    email += "@" + emailDomain;
+                return email;
+            }
+            return username.Replace(' ', '.') + "@" + emailDomain;
         }
 
         private string GetTagFromLabel(string label)
